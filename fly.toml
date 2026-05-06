@@ -1,4 +1,4 @@
-app = "dulceria-pocketbase"
+app = "star-restaurant-pb"
 primary_region = "iad"
 
 [build]

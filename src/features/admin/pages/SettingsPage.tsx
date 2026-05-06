@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Palette, Type, MapPin, CreditCard, Save } from 'lucide-react';
+import { Palette, Type, MapPin, CreditCard, Save, Smartphone, Utensils } from 'lucide-react';
 
 interface SettingsPageProps {
   settings: {
@@ -11,6 +11,7 @@ interface SettingsPageProps {
     googleFontUrl?: string;
     googleFontName?: string;
     locationText: string;
+    mode?: string;
     paymentSettings?: {
       conektaPublicKey?: string;
       mercadopagoPublicKey?: string;
@@ -49,12 +50,18 @@ export const SettingsPage = ({ settings, onSave }: SettingsPageProps) => {
     </div>
   );
 
+  const modes = [
+    { value: 'to-go', label: 'Solo para llevar', description: 'Pedidos para recoger o delivery' },
+    { value: 'dine-in', label: 'Solo comedor', description: 'Experiencia en mesa con QR' },
+    { value: 'both', label: 'Ambos', description: 'Para llevar y servicio en mesa' },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
-          <p className="text-gray-600">Personaliza la apariencia y configura pagos</p>
+          <p className="text-gray-600">Personaliza la apariencia y configura el restaurante</p>
         </div>
         <button
           onClick={handleSave}
@@ -67,6 +74,42 @@ export const SettingsPage = ({ settings, onSave }: SettingsPageProps) => {
       </div>
 
       <div className="grid gap-6">
+        {/* Restaurant Mode */}
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-gray-600" />
+            Modo del Restaurante
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Selecciona cómo operará tu restaurante en la aplicación
+          </p>
+          <div className="grid gap-3">
+            {modes.map((mode) => (
+              <label
+                key={mode.value}
+                className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  formData.mode === mode.value
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="mode"
+                  value={mode.value}
+                  checked={formData.mode === mode.value}
+                  onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+                  className="mt-1"
+                />
+                <div>
+                  <p className="font-medium text-gray-900">{mode.label}</p>
+                  <p className="text-sm text-gray-500">{mode.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Palette className="w-5 h-5 text-gray-600" />

@@ -1,19 +1,19 @@
 {
-  "name": "el-arrocito-app-de-pedidos",
+  "name": "star-multi-tenant-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "setup": "node scripts/setup-collections.js",
     "seed:settings": "node scripts/seed-restaurant-settings.js",
     "seed:menu": "node scripts/seed-menu-items.js"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
     "form-data": "^4.0.5",
-    "fs": "^0.0.1-security",
     "lucide-react": "^0.561.0",
     "pocketbase": "^0.26.8",
     "react": "^19.2.3",

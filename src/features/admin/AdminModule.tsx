@@ -7,9 +7,10 @@ import { OrdersPage } from './pages/OrdersPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InventoryPage } from './pages/InventoryPage';
-import { menuApi, ordersApi, settingsApi, promosApi, adminAuth } from './adminApi';
+import { TablesPage } from './pages/TablesPage';
+import { menuApi, ordersApi, settingsApi, promosApi, tablesApi, adminAuth } from './adminApi';
 
-type AdminPage = 'dashboard' | 'menu' | 'orders' | 'promotions' | 'settings' | 'inventory';
+type AdminPage = 'dashboard' | 'menu' | 'orders' | 'promotions' | 'settings' | 'inventory' | 'tables';
 
 interface AdminModuleProps {
   settings: any;
@@ -26,6 +27,7 @@ export const AdminModule = ({
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(initialSettings);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -35,21 +37,24 @@ export const AdminModule = ({
   const loadData = useCallback(async () => {
     try {
       console.log('[Admin] Loading data...');
-      const [menuData, orderData, promoData, settingsData] = await Promise.all([
+      const [menuData, orderData, promoData, settingsData, tableData] = await Promise.all([
         menuApi.getAll(),
         ordersApi.getAll(),
         promosApi.getAll(),
         settingsApi.get(),
+        tablesApi.getAll(),
       ]);
-      console.log('[Admin] Loaded:', { 
-        menuItems: menuData.length, 
-        orders: orderData.length, 
+      console.log('[Admin] Loaded:', {
+        menuItems: menuData.length,
+        orders: orderData.length,
         promos: promoData.length,
-        hasSettings: !!settingsData 
+        tables: tableData.length,
+        hasSettings: !!settingsData
       });
       setMenuItems(menuData);
       setOrders(orderData);
       setPromos(promoData);
+      setTables(tableData);
       if (settingsData) setSettings(settingsData);
     } catch (error) {
       console.error('[Admin] Error loading data:', error);
@@ -183,6 +188,31 @@ export const AdminModule = ({
     }
   };
 
+  const handleTableSave = async (table: any) => {
+    try {
+      if (table.id) {
+        await tablesApi.update(table.id, table);
+      } else {
+        await tablesApi.create(table);
+      }
+      await loadData();
+      return true;
+    } catch (error) {
+      console.error('Error saving table:', error);
+      throw error;
+    }
+  };
+
+  const handleTableDelete = async (id: string) => {
+    try {
+      await tablesApi.delete(id);
+      await loadData();
+    } catch (error) {
+      console.error('Error deleting table:', error);
+      throw error;
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -269,6 +299,15 @@ export const AdminModule = ({
             onUpdateStock={handleUpdateStock}
           />
         );
+      case 'tables':
+        return (
+          <TablesPage
+            tables={tables}
+            onSave={handleTableSave}
+            onDelete={handleTableDelete}
+            primaryColor={primaryColor}
+          />
+        );
       default:
         return <DashboardPage orders={orders} />;
     }
@@ -277,7 +316,7 @@ export const AdminModule = ({
   return (
     <AdminErrorBoundary>
       <AdminLayout
-        restaurantName={settings?.name || 'El Arrocito'}
+        restaurantName={settings?.name || 'Restaurant'}
         onExit={onExit}
       >
         {(page: AdminPage) => renderPage(page)}

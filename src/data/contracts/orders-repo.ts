@@ -1,10 +1,10 @@
- import type { Order, OrderStatus } from '../../core/types';
+import type { Order, OrderStatus } from '../../core/types';
 
 export interface OrdersRepository {
   create(order: Omit<Order, 'id'> & { id?: string }): Promise<Order>;
   getById(id: string): Promise<Order>;
-  getAll(status?: OrderStatus): Promise<Order[]>;
-  getActive(): Promise<Order[]>;
+  getAll(restaurantId?: string, status?: OrderStatus): Promise<Order[]>;
+  getActive(restaurantId?: string): Promise<Order[]>;
   updateStatus(orderId: string, status: OrderStatus): Promise<Order>;
   remove(orderId: string): Promise<void>;
 }

@@ -1,0 +1,605 @@
+[
+  {
+    "name": "restaurants",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "rest_name",
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 255
+      },
+      {
+        "id": "rest_slug",
+        "name": "slug",
+        "type": "text",
+        "required": true,
+        "max": 100,
+        "unique": true
+      },
+      {
+        "id": "rest_address",
+        "name": "address",
+        "type": "text",
+        "max": 500
+      },
+      {
+        "id": "rest_phone",
+        "name": "phone",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "id": "rest_primary_color",
+        "name": "primary_color",
+        "type": "text",
+        "max": 7
+      },
+      {
+        "id": "rest_secondary_color",
+        "name": "secondary_color",
+        "type": "text",
+        "max": 7
+      },
+      {
+        "id": "rest_accent_color",
+        "name": "accent_color",
+        "type": "text",
+        "max": 7
+      },
+      {
+        "id": "rest_logo_url",
+        "name": "logo_url",
+        "type": "url",
+        "max": 500
+      },
+      {
+        "id": "rest_hero_text",
+        "name": "hero_text",
+        "type": "text",
+        "max": 500
+      },
+      {
+        "id": "rest_tagline",
+        "name": "tagline",
+        "type": "text",
+        "max": 500
+      },
+      {
+        "id": "rest_currency",
+        "name": "currency",
+        "type": "text",
+        "max": 10,
+        "required": true
+      },
+      {
+        "id": "rest_tax_rate",
+        "name": "tax_rate",
+        "type": "number",
+        "min": 0,
+        "max": 100
+      },
+      {
+        "id": "rest_timezone",
+        "name": "timezone",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "id": "rest_hours",
+        "name": "hours",
+        "type": "json"
+      },
+      {
+        "id": "rest_mode",
+        "name": "mode",
+        "type": "select",
+        "required": true,
+        "maxSelect": 1,
+        "values": ["to-go", "dine-in", "both"]
+      },
+      {
+        "id": "rest_admin_email",
+        "name": "admin_email",
+        "type": "email",
+        "max": 255
+      },
+      {
+        "id": "rest_admin_pin",
+        "name": "admin_pin",
+        "type": "text",
+        "max": 10
+      },
+      {
+        "id": "rest_delivery_enabled",
+        "name": "delivery_enabled",
+        "type": "bool"
+      },
+      {
+        "id": "rest_delivery_fee",
+        "name": "delivery_fee",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "rest_delivery_radius_km",
+        "name": "delivery_radius_km",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "rest_telegram_bot_token",
+        "name": "telegram_bot_token",
+        "type": "text",
+        "max": 255
+      },
+      {
+        "id": "rest_telegram_chat_id",
+        "name": "telegram_chat_id",
+        "type": "text",
+        "max": 100
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_restaurants_slug ON restaurants (slug)"
+    ]
+  },
+  {
+    "name": "menu_items",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "mi_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true
+      },
+      {
+        "id": "mi_name",
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 255
+      },
+      {
+        "id": "mi_description",
+        "name": "description",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "id": "mi_price",
+        "name": "price",
+        "type": "number",
+        "required": true,
+        "min": 0
+      },
+      {
+        "id": "mi_category",
+        "name": "category",
+        "type": "text",
+        "required": true,
+        "max": 100
+      },
+      {
+        "id": "mi_subcategory",
+        "name": "subcategory",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "id": "mi_image",
+        "name": "image",
+        "type": "file",
+        "maxSelect": 1,
+        "maxSize": 5242880,
+        "mimeTypes": ["image/jpeg", "image/png", "image/webp", "image/gif"]
+      },
+      {
+        "id": "mi_is_available",
+        "name": "is_available",
+        "type": "bool"
+      },
+      {
+        "id": "mi_is_weight_based",
+        "name": "is_weight_based",
+        "type": "bool"
+      },
+      {
+        "id": "mi_weight_price_per_kg",
+        "name": "weight_price_per_kg",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "mi_options",
+        "name": "options",
+        "type": "json"
+      },
+      {
+        "id": "mi_sort_order",
+        "name": "sort_order",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "mi_track_inventory",
+        "name": "track_inventory",
+        "type": "bool"
+      },
+      {
+        "id": "mi_stock",
+        "name": "stock",
+        "type": "number",
+        "min": 0
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_menu_items_restaurant ON menu_items (restaurant_id)",
+      "CREATE INDEX idx_menu_items_category ON menu_items (category)"
+    ]
+  },
+  {
+    "name": "tables",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "tbl_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true
+      },
+      {
+        "id": "tbl_table_number",
+        "name": "table_number",
+        "type": "number",
+        "required": true,
+        "min": 1
+      },
+      {
+        "id": "tbl_display_name",
+        "name": "display_name",
+        "type": "text",
+        "max": 100
+      },
+      {
+        "id": "tbl_seats",
+        "name": "seats",
+        "type": "number",
+        "required": true,
+        "min": 1
+      },
+      {
+        "id": "tbl_location",
+        "name": "location",
+        "type": "select",
+        "maxSelect": 1,
+        "values": ["patio", "window", "balcony", "middle", "bar", "private", "outdoor"]
+      },
+      {
+        "id": "tbl_qr_code_url",
+        "name": "qr_code_url",
+        "type": "url",
+        "max": 500
+      },
+      {
+        "id": "tbl_x",
+        "name": "x",
+        "type": "number"
+      },
+      {
+        "id": "tbl_y",
+        "name": "y",
+        "type": "number"
+      },
+      {
+        "id": "tbl_is_available",
+        "name": "is_available",
+        "type": "bool"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_tables_restaurant ON tables (restaurant_id)",
+      "CREATE UNIQUE INDEX idx_tables_restaurant_number ON tables (restaurant_id, table_number)"
+    ]
+  },
+  {
+    "name": "orders",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "ord_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true
+      },
+      {
+        "id": "ord_table",
+        "name": "table_id",
+        "type": "relation",
+        "maxSelect": 1,
+        "collectionId": "tables"
+      },
+      {
+        "id": "ord_customer_name",
+        "name": "customer_name",
+        "type": "text",
+        "max": 255
+      },
+      {
+        "id": "ord_customer_phone",
+        "name": "customer_phone",
+        "type": "text",
+        "max": 50
+      },
+      {
+        "id": "ord_items",
+        "name": "items",
+        "type": "json",
+        "required": true
+      },
+      {
+        "id": "ord_total",
+        "name": "total",
+        "type": "number",
+        "required": true,
+        "min": 0
+      },
+      {
+        "id": "ord_subtotal",
+        "name": "subtotal",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "ord_tax",
+        "name": "tax",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "ord_delivery_fee",
+        "name": "delivery_fee",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "ord_status",
+        "name": "status",
+        "type": "select",
+        "required": true,
+        "maxSelect": 1,
+        "values": ["pending", "recibido", "preparando", "empaquetando", "listo", "en_camino", "entregado", "pendiente_pago", "paid", "cancelled"]
+      },
+      {
+        "id": "ord_payment_method",
+        "name": "payment_method",
+        "type": "select",
+        "maxSelect": 1,
+        "values": ["efectivo", "tarjeta", "transferencia", "conekta", "mercadopago", "codi"]
+      },
+      {
+        "id": "ord_order_type",
+        "name": "order_type",
+        "type": "select",
+        "required": true,
+        "maxSelect": 1,
+        "values": ["pickup", "delivery", "dine-in"]
+      },
+      {
+        "id": "ord_notes",
+        "name": "notes",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "id": "ord_session_id",
+        "name": "session_id",
+        "type": "text",
+        "max": 255
+      },
+      {
+        "id": "ord_status_timestamps",
+        "name": "status_timestamps",
+        "type": "json"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_orders_restaurant ON orders (restaurant_id)",
+      "CREATE INDEX idx_orders_status ON orders (status)",
+      "CREATE INDEX idx_orders_session ON orders (session_id)",
+      "CREATE INDEX idx_orders_created ON orders (created)"
+    ]
+  },
+  {
+    "name": "promos",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "pro_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true
+      },
+      {
+        "id": "pro_name",
+        "name": "name",
+        "type": "text",
+        "required": true,
+        "max": 255
+      },
+      {
+        "id": "pro_description",
+        "name": "description",
+        "type": "text",
+        "max": 2000
+      },
+      {
+        "id": "pro_discount_type",
+        "name": "discount_type",
+        "type": "select",
+        "required": true,
+        "maxSelect": 1,
+        "values": ["fixed", "percent", "free_item"]
+      },
+      {
+        "id": "pro_discount_value",
+        "name": "discount_value",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "pro_active",
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_promos_restaurant ON promos (restaurant_id)"
+    ]
+  },
+  {
+    "name": "visitors",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "vis_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true
+      },
+      {
+        "id": "vis_session_id",
+        "name": "session_id",
+        "type": "text",
+        "required": true,
+        "max": 255
+      },
+      {
+        "id": "vis_ip",
+        "name": "ip",
+        "type": "text",
+        "max": 45
+      },
+      {
+        "id": "vis_device_type",
+        "name": "device_type",
+        "type": "select",
+        "maxSelect": 1,
+        "values": ["mobile", "desktop", "tablet"]
+      },
+      {
+        "id": "vis_is_pwa_installed",
+        "name": "is_pwa_installed",
+        "type": "bool"
+      },
+      {
+        "id": "vis_visit_count",
+        "name": "visit_count",
+        "type": "number",
+        "min": 0
+      },
+      {
+        "id": "vis_first_visit",
+        "name": "first_visit",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": false
+      },
+      {
+        "id": "vis_last_visit",
+        "name": "last_visit",
+        "type": "autodate",
+        "onCreate": true,
+        "onUpdate": true
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_visitors_restaurant ON visitors (restaurant_id)",
+      "CREATE INDEX idx_visitors_session ON visitors (session_id)"
+    ]
+  },
+  {
+    "name": "settings",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {
+        "id": "set_restaurant",
+        "name": "restaurant_id",
+        "type": "relation",
+        "required": true,
+        "maxSelect": 1,
+        "collectionId": "restaurants",
+        "cascadeDelete": true,
+        "unique": true
+      },
+      {
+        "id": "set_data",
+        "name": "data",
+        "type": "json",
+        "required": true
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX idx_settings_restaurant ON settings (restaurant_id)"
+    ]
+  }
+]

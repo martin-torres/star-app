@@ -5,7 +5,9 @@ export type OrderStatus =
   | 'listo'
   | 'en_camino'
   | 'entregado'
-  | 'pendiente_pago';
+  | 'pendiente_pago'
+  | 'paid'
+  | 'cancelled';
 
 export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia' | 'conekta' | 'mercadopago' | 'codi';
 export type DeliveryType = 'domicilio' | 'sucursal';
@@ -13,6 +15,9 @@ export type MenuCategory =
   | 'gummies' | 'candy' | 'chocolate' | 'drinks' | 'present'
   | 'greenhouse_premium' | 'greenhouse_selecta' | 'living_soil' | 'hydro'
   | 'edibles' | 'prerolls' | 'infusionados' | 'hash_holes' | 'extractos' | 'vapes' | 'psicodelia';
+
+export type RestaurantMode = 'to-go' | 'dine-in' | 'both';
+export type OrderType = 'pickup' | 'delivery' | 'dine-in';
 
 export interface BundleItem {
   id: string;
@@ -37,6 +42,7 @@ export interface PromoItem {
 
 export interface MenuItem {
   id: string;
+  restaurant_id?: string;
   name: string;
   description: string;
   price: number;
@@ -48,6 +54,10 @@ export interface MenuItem {
   options?: ItemOption[];
   strain?: 'sativa' | 'indica' | 'hybrid';
   soldOut?: boolean;
+  /** Current stock count. -1 = unlimited (default). */
+  stock?: number;
+  /** Whether inventory tracking is enabled for this item. */
+  trackInventory?: boolean;
 }
 
 export interface ItemOption {
@@ -72,23 +82,30 @@ export interface Order {
   id: string;
   collectionId?: string;
   collectionName?: string;
+  restaurant_id?: string;
+  table_id?: string;
   customerName: string;
   customerAddress: string;
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  tax?: number;
+  deliveryFee?: number;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   payWithAmount?: number;
   transferScreenshot?: string;
   deliveryDistanceKm?: number;
-  deliveryFee?: number;
+  order_type?: OrderType;
+  notes?: string;
+  sessionId?: string;
   timestamp: number;
   statusTimestamps: Partial<Record<OrderStatus, number>>;
-  sessionId?: string;
 }
 
 export interface VisitorRecord {
   id: string;
+  restaurant_id?: string;
   ip: string;
   userAgent?: string;
   deviceType?: 'mobile' | 'desktop' | 'tablet';
@@ -213,4 +230,65 @@ export interface AppSkinSettings {
   telegramBotToken?: string;
   telegramChatId?: string;
   telegramNotificationsEnabled?: boolean;
+  /** Restaurant operating mode */
+  mode?: RestaurantMode;
 }
+
+// ============================================================
+// DINE-IN / TABLE TYPES
+// ============================================================
+
+export interface RestaurantTable {
+  id: string;
+  restaurant_id: string;
+  table_number: number;
+  display_name?: string;
+  seats: number;
+  location?: 'patio' | 'window' | 'balcony' | 'middle' | 'bar' | 'private' | 'outdoor';
+  qr_code_url?: string;
+  x?: number;
+  y?: number;
+  is_available: boolean;
+}
+
+export interface DiningSession {
+  id: string;
+  restaurant_id: string;
+  table_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  status: 'active' | 'ordering' | 'bill_requested' | 'paid' | 'closed';
+  order_ids: string[];
+  session_start: number;
+  session_end?: number;
+}
+
+export interface BillRequest {
+  id: string;
+  restaurant_id: string;
+  table_id: string;
+  order_ids: string[];
+  subtotal: number;
+  tax: number;
+  tip: number;
+  total: number;
+  status: 'requested' | 'processing' | 'paid' | 'cancelled';
+  payments: BillPayment[];
+  requested_at: number;
+}
+
+export interface BillPayment {
+  userId: string;
+  userName: string;
+  amount: number;
+  paidAt: number;
+  items?: string[];
+}
+
+export type DineInStage =
+  | 'qr-scan'
+  | 'restaurant-info'
+  | 'table-selection'
+  | 'dining'
+  | 'bill'
+  | 'payment-complete';

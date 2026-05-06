@@ -4,17 +4,22 @@ import { pbClient } from './client';
 import { toMenuItem, toPromoItem } from './mappers';
 
 export class PocketBaseMenuRepository implements MenuRepository {
-  async getAll(): Promise<MenuItem[]> {
+  async getAll(restaurantId?: string): Promise<MenuItem[]> {
+    const filter = restaurantId
+      ? `restaurant_id = "${restaurantId}"`
+      : '';
     const items = await pbClient.collection('menu_items').getFullList({
-      filter: 'active = true',
+      filter: filter || undefined,
       sort: 'category,name',
     });
     return items.map((item) => toMenuItem(item as any));
   }
 
-  async getByCategory(category: MenuCategory): Promise<MenuItem[]> {
+  async getByCategory(category: MenuCategory, restaurantId?: string): Promise<MenuItem[]> {
+    const filters = [`category = "${category}"`];
+    if (restaurantId) filters.push(`restaurant_id = "${restaurantId}"`);
     const items = await pbClient.collection('menu_items').getFullList({
-      filter: `category = "${category}"`,
+      filter: filters.join(' && '),
       sort: 'name',
     });
     return items.map((item) => toMenuItem(item as any));
@@ -25,12 +30,13 @@ export class PocketBaseMenuRepository implements MenuRepository {
     return toMenuItem(item as any);
   }
 
-  async getActivePromos(): Promise<PromoItem[]> {
+  async getActivePromos(restaurantId?: string): Promise<PromoItem[]> {
+    const filters = ['category = "promo"', 'active = true'];
+    if (restaurantId) filters.push(`restaurant_id = "${restaurantId}"`);
     const items = await pbClient.collection('menu_items').getFullList({
-      filter: 'category = "promo" && active = true',
+      filter: filters.join(' && '),
       sort: 'name',
     });
     return items.map((item) => toPromoItem(item as any));
   }
 }
-

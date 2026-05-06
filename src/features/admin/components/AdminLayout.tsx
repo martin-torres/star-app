@@ -10,10 +10,11 @@ import {
   ChevronRight,
   Menu,
   X,
+  Table2,
 } from 'lucide-react';
 import { AdminErrorBoundary } from './ErrorBoundary';
 
-type AdminPage = 'dashboard' | 'menu' | 'orders' | 'promotions' | 'settings' | 'inventory';
+type AdminPage = 'dashboard' | 'menu' | 'orders' | 'promotions' | 'settings' | 'inventory' | 'tables';
 
 interface NavItem {
   id: AdminPage;
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
   { id: 'orders', label: 'Órdenes', icon: <ShoppingCart className="w-5 h-5" /> },
   { id: 'promotions', label: 'Promociones', icon: <Percent className="w-5 h-5" /> },
   { id: 'inventory', label: 'Inventario', icon: <Package className="w-5 h-5" /> },
+  { id: 'tables', label: 'Mesas', icon: <Table2 className="w-5 h-5" /> },
   { id: 'settings', label: 'Configuración', icon: <Settings className="w-5 h-5" /> },
 ];
 
@@ -36,7 +38,7 @@ interface AdminLayoutProps {
   onExit: () => void;
 }
 
-export const AdminLayout = ({ children, restaurantName = 'El Arrocito', onExit }: AdminLayoutProps) => {
+export const AdminLayout = ({ children, restaurantName = 'Restaurant', onExit }: AdminLayoutProps) => {
   const [currentPage, setCurrentPage] = useState<AdminPage>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

@@ -1,5 +1,19 @@
-import PocketBase from 'pocketbase';
+/**
+ * PocketBase Collection Setup Script for Star Multi-Tenant App
+ *
+ * Creates all required collections: restaurants, menu_items, tables,
+ * orders, promos, visitors, settings, dining_sessions, bill_requests
+ *
+ * Usage:
+ *   PB_ADMIN_EMAIL=admin@example.com PB_ADMIN_PASSWORD=yourpassword node scripts/setup-collections.js
+ */
 
+import PocketBase from 'pocketbase';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const PB_URL = process.env.PB_URL || 'http://127.0.0.1:8090';
 const PB_ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL;
 const PB_ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD;
@@ -11,92 +25,48 @@ if (!PB_ADMIN_EMAIL || !PB_ADMIN_PASSWORD) {
 
 const pb = new PocketBase(PB_URL);
 
+async function collectionExists(name) {
+  try {
+    const collections = await pb.collections.getFullList();
+    return collections.some(c => c.name === name);
+  } catch {
+    return false;
+  }
+}
+
 async function setupCollections() {
   try {
-    await pb.admins.authWithPassword(PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD);
-    console.log('Authenticated with PocketBase\n');
+    await pb.collection('_superusers').authWithPassword(PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD);
+    console.log('Authenticated with PocketBase');
 
-    const collections = [
-      {
-        name: 'restaurant_settings',
-        type: 'base',
-        schema: [
-          { name: 'name', type: 'text', required: true },
-          { name: 'shortName', type: 'text' },
-          { name: 'currency', type: 'text', options: { max: 10 } },
-          { name: 'tagline', type: 'text' },
-          { name: 'description', type: 'text' },
-          { name: 'locationText', type: 'text' },
-          { name: 'logoUrl', type: 'text' },
-          { name: 'heroImageUrl', type: 'text' },
-          { name: 'heroTitle', type: 'text' },
-          { name: 'heroSubtitle', type: 'text' },
-          { name: 'pickupLocationText', type: 'text' },
-          { name: 'adminPin', type: 'text', options: { max: 10 } },
-          { name: 'kitchenPin', type: 'text', options: { max: 10 } },
-          { name: 'primaryColor', type: 'text', options: { max: 20 } },
-          { name: 'secondaryColor', type: 'text', options: { max: 20 } },
-          { name: 'accentColor', type: 'text', options: { max: 20 } },
-          { name: 'backgroundColor', type: 'text', options: { max: 20 } },
-          { name: 'googleFontUrl', type: 'text' },
-          { name: 'googleFontName', type: 'text' },
-          { name: 'categories', type: 'json' },
-          { name: 'uiText', type: 'json' },
-          { name: 'deliveryRules', type: 'json' },
-          { name: 'paymentSettings', type: 'json' },
-        ],
-      },
-      {
-        name: 'menu_items',
-        type: 'base',
-        schema: [
-          { name: 'name', type: 'text', required: true },
-          { name: 'description', type: 'text' },
-          { name: 'price', type: 'number', required: true },
-          { name: 'category', type: 'text', required: true },
-          { name: 'image', type: 'text' },
-          { name: 'active', type: 'bool', options: { default: true } },
-          { name: 'isWeightBased', type: 'bool', options: { default: false } },
-          { name: 'weightPricePerKg', type: 'number' },
-          { name: 'stock', type: 'number' },
-        ],
-      },
-      {
-        name: 'orders',
-        type: 'base',
-        schema: [
-          { name: 'customerName', type: 'text', required: true },
-          { name: 'customerAddress', type: 'text' },
-          { name: 'items', type: 'json', required: true },
-          { name: 'total', type: 'number', required: true },
-          { name: 'status', type: 'select', options: { values: ['recibido', 'preparando', 'empaquetando', 'listo', 'en_camino', 'entregado', 'pendiente_pago'], default: 'recibido' } },
-          { name: 'paymentMethod', type: 'select', options: { values: ['efectivo', 'tarjeta', 'transferencia', 'conekta', 'mercadopago', 'codi'] } },
-          { name: 'payWithAmount', type: 'number' },
-          { name: 'transferScreenshot', type: 'file' },
-          { name: 'deliveryDistanceKm', type: 'number' },
-          { name: 'deliveryFee', type: 'number' },
-          { name: 'timestamp', type: 'number' },
-          { name: 'statusTimestamps', type: 'json' },
-        ],
-      },
-    ];
+    const schemaPath = resolve(__dirname, '..', 'pocketbase-schema.json');
+    const schemaData = JSON.parse(readFileSync(schemaPath, 'utf-8'));
 
-    for (const collection of collections) {
+    for (const collectionDef of schemaData) {
+      const name = collectionDef.name;
+      const exists = await collectionExists(name);
+
+      if (exists) {
+        console.log(`  Collection "${name}" already exists, skipping creation`);
+        continue;
+      }
+
+      console.log(`  Creating collection "${name}"...`);
       try {
-        await pb.collections.create(collection);
-        console.log(`✅ Created collection: ${collection.name}`);
+        await pb.collections.create(collectionDef);
+        console.log(`  ✓ Created "${name}"`);
       } catch (err) {
-        if (err.data?.data?.name?.code === 'validation_not_unique') {
-          console.log(`⏭️  Collection already exists: ${collection.name}`);
-        } else {
-          console.error(`❌ Error creating ${collection.name}:`, err.message);
-        }
+        console.error(`  ✗ Failed to create "${name}":`, err.message);
       }
     }
 
-    console.log('\n✅ Collections setup complete!');
+    console.log('\nCollection setup complete!');
+    console.log('Collections created:');
+    const collections = await pb.collections.getFullList();
+    collections.forEach(c => console.log(`  - ${c.name} (${c.type})`));
+
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Setup failed:', error);
     process.exit(1);
   }
 }

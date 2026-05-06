@@ -19,3 +19,17 @@ export const useUrlMode = (): ViewMode => {
 
   return mode;
 };
+
+/**
+ * Extract restaurant_id from URL query params.
+ */
+export const useRestaurantId = (): string | null => {
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRestaurantId(params.get('restaurant_id'));
+  }, []);
+
+  return restaurantId;
+};

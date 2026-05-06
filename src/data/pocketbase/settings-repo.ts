@@ -3,13 +3,18 @@ import type { AppSkinSettings } from '../../core/types';
 import { pbClient } from './client';
 
 export class PocketBaseSettingsRepository implements SettingsRepository {
-  async get(): Promise<AppSkinSettings | null> {
+  async get(restaurantId?: string): Promise<AppSkinSettings | null> {
     try {
-      const settings = await pbClient.collection('restaurant_settings').getFullList();
+      const filter = restaurantId ? `restaurant_id = "${restaurantId}"` : '';
+      const settings = await pbClient.collection('settings').getFullList({
+        filter: filter || undefined,
+      });
       if (settings.length === 0) {
         return null;
       }
-      return settings[0] as any as AppSkinSettings;
+      // Settings are stored in the `data` JSON field — unwrap them
+      const record = settings[0] as any;
+      return record?.data || null;
     } catch (error: any) {
       if (error?.status === 404 || error?.message?.includes('not found')) {
         return null;
@@ -18,17 +23,26 @@ export class PocketBaseSettingsRepository implements SettingsRepository {
     }
   }
 
-  async save(settings: Partial<AppSkinSettings>): Promise<AppSkinSettings> {
-    const existing = await pbClient.collection('restaurant_settings').getFullList();
+  async save(settingsData: Partial<AppSkinSettings>, restaurantId?: string): Promise<AppSkinSettings> {
+    const filter = restaurantId ? `restaurant_id = "${restaurantId}"` : '';
+    const existing = await pbClient.collection('settings').getFullList({
+      filter: filter || undefined,
+    });
     if (existing.length > 0) {
+      // Update the data JSON field
+      const current = existing[0] as any;
+      const merged = { ...(current.data || {}), ...settingsData };
       const updated = await pbClient
-        .collection('restaurant_settings')
-        .update(existing[0].id, settings);
-      return updated as any as AppSkinSettings;
+        .collection('settings')
+        .update(existing[0].id, { data: merged });
+      return (updated as any)?.data as AppSkinSettings;
     }
 
-    const created = await pbClient.collection('restaurant_settings').create(settings);
-    return created as any as AppSkinSettings;
+    // Create new settings record with data wrapped in JSON field
+    const payload = restaurantId
+      ? { restaurant_id: restaurantId, data: settingsData }
+      : { data: settingsData };
+    const created = await pbClient.collection('settings').create(payload);
+    return (created as any)?.data as AppSkinSettings;
   }
 }
-
