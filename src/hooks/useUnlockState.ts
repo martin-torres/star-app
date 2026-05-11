@@ -1,5 +1,5 @@
 import React from 'react';
-import { pbClient } from '../data/pocketbase/client';
+import { insforge } from '../data/pocketbase/client';
 
 const UNLOCK_KEY = 'ldl_unlocked';
 const DISCLAIMER_KEY = 'ldl_disclaimer_accepted';
@@ -27,15 +27,20 @@ export const useUnlockState = () => {
     setDisclaimerAccepted(true);
     
     try {
-      await pbClient.collection('restaurant_settings').getList(1, 1).then((res) => {
-        if (res.items.length > 0) {
-          pbClient.collection('restaurant_settings').update(res.items[0].id, {
+      const { data } = await insforge.database
+        .from('restaurant_settings')
+        .select('*')
+        .limit(1);
+      if (data && data.length > 0) {
+        await insforge.database
+          .from('restaurant_settings')
+          .update({
             disclaimer_accepted: true,
             disclaimer_accepted_by: customerName || 'anonymous',
             disclaimer_accepted_at: new Date().toISOString(),
-          });
-        }
-      });
+          })
+          .eq('id', data[0].id);
+      }
     } catch (e) {
       console.log('Could not save disclaimer to database');
     }

@@ -3,7 +3,7 @@ import { PocketBaseOrdersRepository } from './orders-repo';
 import { PocketBaseSettingsRepository } from './settings-repo';
 import { PocketBaseTablesRepository } from './tables-repo';
 
-export { pbClient } from './client';
+export { insforge } from './client';
 
 export const menuRepository = new PocketBaseMenuRepository();
 export const ordersRepository = new PocketBaseOrdersRepository();

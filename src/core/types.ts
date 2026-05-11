@@ -12,9 +12,7 @@ export type OrderStatus =
 export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia' | 'conekta' | 'mercadopago' | 'codi';
 export type DeliveryType = 'domicilio' | 'sucursal';
 export type MenuCategory = 
-  | 'gummies' | 'candy' | 'chocolate' | 'drinks' | 'present'
-  | 'greenhouse_premium' | 'greenhouse_selecta' | 'living_soil' | 'hydro'
-  | 'edibles' | 'prerolls' | 'infusionados' | 'hash_holes' | 'extractos' | 'vapes' | 'psicodelia';
+  | 'pasteles' | 'postres' | 'especial' | 'promo';
 
 export type RestaurantMode = 'to-go' | 'dine-in' | 'both';
 export type OrderType = 'pickup' | 'delivery' | 'dine-in';

@@ -1,22 +1,18 @@
 import type { SettingsRepository } from '../contracts';
 import type { AppSkinSettings } from '../../core/types';
-import { pbClient } from './client';
+import { insforge } from './client';
 
 export class PocketBaseSettingsRepository implements SettingsRepository {
   async get(restaurantId?: string): Promise<AppSkinSettings | null> {
     try {
-      const filter = restaurantId ? `restaurant_id = "${restaurantId}"` : '';
-      const settings = await pbClient.collection('settings').getFullList({
-        filter: filter || undefined,
-      });
-      if (settings.length === 0) {
-        return null;
-      }
-      // Settings are stored in the `data` JSON field — unwrap them
-      const record = settings[0] as any;
-      return record?.data || null;
+      let query = insforge.database.from('restaurant_settings').select('*');
+      if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+      const { data, error } = await query.limit(1);
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      return (data[0] as any)?.data || null;
     } catch (error: any) {
-      if (error?.status === 404 || error?.message?.includes('not found')) {
+      if (error?.status === 404 || error?.message?.includes('not found') || error?.code === 'PGRST116') {
         return null;
       }
       throw error;
@@ -24,25 +20,30 @@ export class PocketBaseSettingsRepository implements SettingsRepository {
   }
 
   async save(settingsData: Partial<AppSkinSettings>, restaurantId?: string): Promise<AppSkinSettings> {
-    const filter = restaurantId ? `restaurant_id = "${restaurantId}"` : '';
-    const existing = await pbClient.collection('settings').getFullList({
-      filter: filter || undefined,
-    });
-    if (existing.length > 0) {
-      // Update the data JSON field
+    let query = insforge.database.from('restaurant_settings').select('*');
+    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+    const { data: existing } = await query.limit(1);
+
+    if (existing && existing.length > 0) {
       const current = existing[0] as any;
       const merged = { ...(current.data || {}), ...settingsData };
-      const updated = await pbClient
-        .collection('settings')
-        .update(existing[0].id, { data: merged });
-      return (updated as any)?.data as AppSkinSettings;
+      const { data: updated, error } = await insforge.database
+        .from('restaurant_settings')
+        .update({ data: merged })
+        .eq('id', existing[0].id)
+        .select();
+      if (error) throw error;
+      return ((updated as any)?.[0]?.data || merged) as AppSkinSettings;
     }
 
-    // Create new settings record with data wrapped in JSON field
     const payload = restaurantId
       ? { restaurant_id: restaurantId, data: settingsData }
       : { data: settingsData };
-    const created = await pbClient.collection('settings').create(payload);
-    return (created as any)?.data as AppSkinSettings;
+    const { data: created, error } = await insforge.database
+      .from('restaurant_settings')
+      .insert([payload])
+      .select();
+    if (error) throw error;
+    return ((created as any)?.[0]?.data || settingsData) as AppSkinSettings;
   }
 }

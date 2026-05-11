@@ -32,6 +32,12 @@ pocketbase/pocketbase.log
 .DS_Store
 Thumbs.db
 
+# InsForge project config (may contain credentials)
+.insforge/
+
+# Vite PWA dev build
+dev-dist/
+
 # Logs
 *.log
 npm-debug.log*

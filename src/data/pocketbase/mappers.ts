@@ -21,7 +21,7 @@ const asBoolean = (value: unknown, fallback = false): boolean => {
 };
 
 const asJson = <T>(value: unknown, fallback: T): T => {
-  if (value === undefined) return fallback;
+  if (value === undefined || value === null) return fallback;
   if (typeof value === 'string') {
     try {
       return JSON.parse(value) as T;
@@ -29,7 +29,7 @@ const asJson = <T>(value: unknown, fallback: T): T => {
       return fallback;
     }
   }
-  if (typeof value === 'object' && value !== null) return value as T;
+  if (typeof value === 'object') return value as T;
   return fallback;
 };
 
@@ -39,13 +39,13 @@ export const toMenuItem = (record: RawRecord): MenuItem => ({
   name: asString(record.name),
   description: asString(record.description),
   price: asNumber(record.price),
-  category: (asString(record.category) || 'gummies') as MenuItem['category'],
+  category: (asString(record.category) || 'pasteles') as MenuItem['category'],
   image: asString(record.image),
-  isWeightBased: asBoolean(record.isWeightBased),
-  weightPricePerKg: record.weightPricePerKg === undefined ? undefined : asNumber(record.weightPricePerKg),
+  isWeightBased: asBoolean(record.is_weight_based),
+  weightPricePerKg: record.weight_price_per_kg === undefined ? undefined : asNumber(record.weight_price_per_kg),
   options: asJson(record.options, undefined),
   strain: asString(record.strain, undefined) as 'sativa' | 'indica' | 'hybrid' | undefined,
-  soldOut: record.soldOut === 1 ? true : asBoolean(record.soldOut),
+  soldOut: asBoolean(record.sold_out),
   stock: record.stock === undefined ? undefined : asNumber(record.stock),
   trackInventory: asBoolean(record.track_inventory),
 });
@@ -54,10 +54,10 @@ export const toPromoItem = (record: RawRecord): PromoItem => ({
   ...toMenuItem(record),
   category: 'promo',
   active: asBoolean(record.active),
-  bundleItems: asJson(record.bundleItems, undefined),
-  discountType: asString(record.discountType, undefined) as 'fixed' | 'percent' | undefined,
-  discountValue: record.discountValue === undefined ? undefined : asNumber(record.discountValue),
-  originalPrice: record.originalPrice === undefined ? undefined : asNumber(record.originalPrice),
+  bundleItems: asJson(record.bundle_items, undefined),
+  discountType: asString(record.discount_type, undefined) as 'fixed' | 'percent' | undefined,
+  discountValue: record.discount_value === undefined ? undefined : asNumber(record.discount_value),
+  originalPrice: record.original_price === undefined ? undefined : asNumber(record.original_price),
 });
 
 export const toOrder = (record: RawRecord): Order => {
@@ -66,32 +66,34 @@ export const toOrder = (record: RawRecord): Order => {
 
   return {
     id: record.id,
-    collectionId: record.collectionId ? asString(record.collectionId) : undefined,
-    collectionName: record.collectionName ? asString(record.collectionName) : undefined,
+    collectionId: record.collection_id ? asString(record.collection_id) : undefined,
+    collectionName: 'orders',
     restaurant_id: record.restaurant_id ? asString(record.restaurant_id) : undefined,
     table_id: record.table_id ? asString(record.table_id) : undefined,
-    customerName: asString(record.customerName),
-    customerAddress: asString(record.customerAddress),
+    customerName: asString(record.customer_name),
+    customerAddress: asString(record.customer_address),
     items: rawItems as Order['items'],
     total: asNumber(record.total),
     subtotal: record.subtotal === undefined ? undefined : asNumber(record.subtotal),
     tax: record.tax === undefined ? undefined : asNumber(record.tax),
-    deliveryFee: record.deliveryFee === undefined ? undefined : asNumber(record.deliveryFee),
+    deliveryFee: record.delivery_fee === undefined ? undefined : asNumber(record.delivery_fee),
     status,
-    paymentMethod: asString(record.paymentMethod, 'efectivo') as Order['paymentMethod'],
-    payWithAmount: record.payWithAmount === undefined ? undefined : asNumber(record.payWithAmount),
-    transferScreenshot: record.transferScreenshot
-      ? asString(record.transferScreenshot)
+    paymentMethod: asString(record.payment_method, 'efectivo') as Order['paymentMethod'],
+    payWithAmount: record.pay_with_amount === undefined ? undefined : asNumber(record.pay_with_amount),
+    transferScreenshot: record.transfer_screenshot
+      ? asString(record.transfer_screenshot)
       : undefined,
     deliveryDistanceKm:
-      record.deliveryDistanceKm === undefined ? undefined : asNumber(record.deliveryDistanceKm),
+      record.delivery_distance_km === undefined ? undefined : asNumber(record.delivery_distance_km),
     order_type: record.order_type ? asString(record.order_type) as Order['order_type'] : undefined,
     notes: record.notes ? asString(record.notes) : undefined,
-    sessionId: record.sessionId ? asString(record.sessionId) : undefined,
+    sessionId: record.session_id ? asString(record.session_id) : undefined,
     timestamp: asNumber(record.timestamp, Date.now()),
     statusTimestamps:
-      typeof record.statusTimestamps === 'object' && record.statusTimestamps !== null
-        ? (record.statusTimestamps as Order['statusTimestamps'])
-        : {},
+      typeof record.status_timestamps === 'object' && record.status_timestamps !== null
+        ? (record.status_timestamps as Order['statusTimestamps'])
+        : typeof record.statusTimestamps === 'object' && record.statusTimestamps !== null
+          ? (record.statusTimestamps as Order['statusTimestamps'])
+          : {},
   };
 };

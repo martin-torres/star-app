@@ -1,15 +1,15 @@
 import type { MenuItem, Order, OrderStatus, RestaurantTable } from '../types';
 import type { AppSkinSettings } from '../src/core/types';
-import { menuRepository, ordersRepository, pbClient, settingsRepository, tablesRepository } from '../src/data/pocketbase';
+import { menuRepository, ordersRepository, insforge, settingsRepository, tablesRepository } from '../src/data/pocketbase';
 
 export const promosApi = {
   getActive: async (restaurantId?: string): Promise<any[]> => {
     try {
-      const filter = restaurantId ? `restaurant_id = "${restaurantId}"` : '';
-      const records = await pbClient.collection('promos').getFullList({
-        filter: filter || undefined,
-      });
-      return records.map((r: any) => ({
+      let query = insforge.database.from('promos').select('*');
+      if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
         id: r.id,
         name: r.code || r.name,
         description: r.description,
@@ -79,26 +79,36 @@ export const tablesApi = {
 export const restaurantsApi = {
   getById: async (id: string) => {
     try {
-      const record = await pbClient.collection('restaurants').getOne(id);
-      return record as any;
+      const { data, error } = await insforge.database
+        .from('restaurants')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
     } catch {
       return null;
     }
   },
   getBySlug: async (slug: string) => {
     try {
-      const records = await pbClient.collection('restaurants').getFullList({
-        filter: `slug = "${slug}"`,
-      });
-      return records.length > 0 ? records[0] : null;
+      const { data, error } = await insforge.database
+        .from('restaurants')
+        .select('*')
+        .eq('slug', slug);
+      if (error) throw error;
+      return (data && data.length > 0) ? data[0] : null;
     } catch {
       return null;
     }
   },
   getAll: async () => {
     try {
-      const records = await pbClient.collection('restaurants').getFullList();
-      return records as any[];
+      const { data, error } = await insforge.database
+        .from('restaurants')
+        .select('*');
+      if (error) throw error;
+      return data || [];
     } catch {
       return [];
     }
@@ -107,19 +117,24 @@ export const restaurantsApi = {
 
 export const authApi = {
   login: async (email: string, password: string) =>
-    pbClient.collection('users').authWithPassword(email, password),
+    insforge.auth.signInWithPassword({ email, password }),
   logout: () => {
-    pbClient.authStore.clear();
+    insforge.auth.signOut();
   },
-  getCurrentUser: () => pbClient.authStore.model,
-  isAuthenticated: () => pbClient.authStore.isValid,
+  getCurrentUser: async () => {
+    const { data } = await insforge.auth.getCurrentUser();
+    return data?.user || null;
+  },
+  isAuthenticated: () => {
+    return !!insforge.getHttpClient().getHeaders()['Authorization'];
+  },
 };
 
 export const uploadFile = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('screenshot', file);
-  const record = await pbClient.collection('orders').create(formData);
-  return record.id;
+  const path = `screenshots/${Date.now()}_${file.name}`;
+  const { data, error } = await insforge.storage.from('images').upload(path, file);
+  if (error) throw error;
+  return insforge.storage.from('images').getPublicUrl(path);
 };
 
-export default pbClient;
+export default insforge;

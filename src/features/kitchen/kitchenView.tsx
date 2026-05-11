@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { ChefHat, Eye } from 'lucide-react';
-import pb from '../../../lib/pocketbase';
 
 export const KitchenView = ({
   orders,
@@ -50,10 +49,7 @@ export const KitchenView = ({
           </div>
         ) : (
           activeOrders.map((order: any) => {
-            // Derive the full file URL from the filename
-            const transferImageUrl = order.transferScreenshot
-              ? pb.getFileUrl(order, order.transferScreenshot)
-              : null;
+            const transferImageUrl = order.transferScreenshot || null;
             
             return (
             <div key={order.id} className="snap-start flex-shrink-0 w-80 bg-white border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col max-h-[calc(100vh-180px)] animate-in slide-in-from-right-8 duration-500">

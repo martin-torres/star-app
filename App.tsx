@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, VisitorRecord, RestaurantTable, DineInStage } from './types';
-import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tablesApi } from './lib/pocketbase';
+import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tablesApi, restaurantsApi, uploadFile } from './lib/pocketbase';
 import { useUrlMode } from './src/hooks/useUrlMode';
 import { useVisitorTracking } from './src/hooks/useVisitorTracking';
-import pb from './lib/pocketbase';
 import { calculateDeliveryFee, haversineKm } from './src/core/pricing';
 import { resolveUiSettings } from './src/core/uiSettings';
 import { LanguageProvider } from './src/contexts/LanguageContext';
@@ -285,7 +284,7 @@ const App: React.FC = () => {
         status: method === 'transferencia' ? 'pendiente_pago' : 'recibido',
         paymentMethod: method,
         payWithAmount: method === 'efectivo' && payWithAmount ? parseFloat(payWithAmount) : undefined,
-        transferScreenshot: method === 'transferencia' ? transferFile : undefined,
+        transferScreenshot: undefined,
         deliveryDistanceKm,
         deliveryFee,
         restaurant_id: restaurantId || undefined,
@@ -294,31 +293,11 @@ const App: React.FC = () => {
         statusTimestamps: { recibido: now }
       };
 
-      const formData = new FormData();
-      formData.append('customerName', newOrderData.customerName);
-      formData.append('customerAddress', newOrderData.customerAddress);
-      formData.append('items', JSON.stringify(newOrderData.items));
-      formData.append('total', newOrderData.total.toString());
-      formData.append('status', newOrderData.status);
-      formData.append('paymentMethod', newOrderData.paymentMethod);
-      formData.append('order_type', newOrderData.order_type || 'pickup');
-      if (newOrderData.restaurant_id) formData.append('restaurant_id', newOrderData.restaurant_id);
-      if (newOrderData.payWithAmount !== undefined) {
-        formData.append('payWithAmount', newOrderData.payWithAmount.toString());
+      if (method === 'transferencia' && transferFile) {
+        newOrderData.transferScreenshot = await uploadFile(transferFile);
       }
-      if (newOrderData.transferScreenshot !== undefined) {
-        formData.append('transferScreenshot', newOrderData.transferScreenshot);
-      }
-      if (newOrderData.deliveryDistanceKm !== undefined) {
-        formData.append('deliveryDistanceKm', newOrderData.deliveryDistanceKm.toString());
-      }
-      if (newOrderData.deliveryFee !== undefined) {
-        formData.append('deliveryFee', newOrderData.deliveryFee.toString());
-      }
-      formData.append('timestamp', newOrderData.timestamp.toString());
-      formData.append('statusTimestamps', JSON.stringify(newOrderData.statusTimestamps));
 
-      const newOrder = await pb.collection('orders').create(formData);
+      const newOrder = await ordersApi.create(newOrderData);
 
       await associateVisitorWithOrder(newOrder.id);
 
@@ -335,9 +314,10 @@ const App: React.FC = () => {
       setTransferFile(null);
       setCustomerInfo({ name: '', address: '', cardNumber: '', expiry: '', cvv: '' });
       setActiveScreen('tracking');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating order:', error);
-      alert('Error al crear orden. Por favor intenta de nuevo.');
+      const detail = error?.message || error?.error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+      alert(`Error al crear orden: ${detail}`);
     }
   };
 
@@ -413,13 +393,9 @@ const App: React.FC = () => {
     setQrError(null);
 
     try {
-      // Try to get restaurant by ID first, then by slug
-      let restaurant = await pb.collection('restaurants').getOne(restaurantIdOrSlug).catch(() => null);
+      let restaurant = await restaurantsApi.getById(restaurantIdOrSlug);
       if (!restaurant) {
-        const records = await pb.collection('restaurants').getFullList({
-          filter: `slug = "${restaurantIdOrSlug}"`,
-        });
-        restaurant = records.length > 0 ? records[0] : null;
+        restaurant = await restaurantsApi.getBySlug(restaurantIdOrSlug);
       }
 
       if (!restaurant) {

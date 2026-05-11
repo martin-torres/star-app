@@ -94,17 +94,10 @@ export const resolveUiSettings = (
     settings?.categories && settings.categories.length > 0
       ? settings.categories
       : [
+          { code: 'pasteles', displayName: 'Pasteles' },
+          { code: 'postres', displayName: 'Postres' },
+          { code: 'especial', displayName: 'Especialidades' },
           { code: 'promo', displayName: 'Promociones' },
-          { code: 'bebida', displayName: 'Bebidas' },
-          { code: 'taco', displayName: 'Tacos' },
-          { code: 'plato', displayName: 'Platos Fuertes' },
-          { code: 'grill', displayName: 'Parrilla' },
-          { code: 'antojito', displayName: 'Antojitos' },
-          { code: 'snack', displayName: 'Snacks' },
-          { code: 'sopa', displayName: 'Sopas y Caldos' },
-          { code: 'cafe', displayName: 'Café' },
-          { code: 'extra', displayName: 'Extras' },
-          { code: 'postre', displayName: 'Postres' },
         ],
   deliveryRules: settings?.deliveryRules || {},
   paymentSettings: settings?.paymentSettings,

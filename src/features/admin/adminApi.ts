@@ -1,11 +1,6 @@
-import PocketBase from 'pocketbase';
-
-const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090');
-
-pb.autoCancellation(false);
+import { insforge } from '../../data/pocketbase/client';
 
 let currentRestaurantId: string | null = null;
-let isAuth = false;
 
 export const setAdminRestaurantId = (id: string | null) => {
   currentRestaurantId = id;
@@ -13,8 +8,8 @@ export const setAdminRestaurantId = (id: string | null) => {
 
 export const adminAuth = async (email: string, password: string): Promise<boolean> => {
   try {
-    await pb.collection('_superusers').authWithPassword(email, password);
-    isAuth = true;
+    const { error } = await insforge.auth.signInWithPassword({ email, password });
+    if (error) throw error;
     return true;
   } catch (error) {
     console.error('Admin auth failed:', error);
@@ -22,112 +17,166 @@ export const adminAuth = async (email: string, password: string): Promise<boolea
   }
 };
 
-export const isAdminAuth = (): boolean => isAuth && pb.authStore.isValid;
+export const isAdminAuth = async (): Promise<boolean> => {
+  const { data } = await insforge.auth.getCurrentUser();
+  return !!data?.user;
+};
 
-const restaurantFilter = () => currentRestaurantId ? `restaurant_id = "${currentRestaurantId}"` : '';
-const restaurantField = (data: any) => currentRestaurantId ? { ...data, restaurant_id: currentRestaurantId } : data;
+const restaurantEq = () => currentRestaurantId ? (q: any) => q.eq('restaurant_id', currentRestaurantId) : (q: any) => q;
+const withRestaurant = (query: any) => {
+  if (currentRestaurantId) return query.eq('restaurant_id', currentRestaurantId);
+  return query;
+};
 
 export const menuApi = {
   getAll: async () => {
-    const filter = restaurantFilter();
-    const records = await pb.collection('menu_items').getFullList({
-      filter: filter || undefined,
-    });
-    return records;
+    let query = insforge.database.from('menu_items').select('*');
+    query = withRestaurant(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   create: async (data: any) => {
-    const record = await pb.collection('menu_items').create(restaurantField(data));
+    const payload = currentRestaurantId ? { ...data, restaurant_id: currentRestaurantId } : data;
+    const { data: record, error } = await insforge.database
+      .from('menu_items')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   update: async (id: string, data: any) => {
-    const record = await pb.collection('menu_items').update(id, data);
+    const { data: record, error } = await insforge.database
+      .from('menu_items')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   delete: async (id: string) => {
-    await pb.collection('menu_items').delete(id);
+    const { error } = await insforge.database.from('menu_items').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
 export const ordersApi = {
   getAll: async () => {
-    const filter = restaurantFilter();
-    const records = await pb.collection('orders').getFullList({
-      filter: filter || undefined,
-    });
-    return records;
+    let query = insforge.database.from('orders').select('*').order('timestamp', { ascending: false });
+    query = withRestaurant(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   updateStatus: async (id: string, status: string) => {
-    const record = await pb.collection('orders').update(id, { status });
+    const { data: record, error } = await insforge.database
+      .from('orders')
+      .update({ status })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 };
 
 export const settingsApi = {
   get: async () => {
-    const filter = restaurantFilter();
-    const records = await pb.collection('restaurant_settings').getFullList({
-      filter: filter || undefined,
-    });
-    return records[0] || null;
+    let query = insforge.database.from('restaurant_settings').select('*');
+    query = withRestaurant(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data && data.length > 0) ? data[0] : null;
   },
 
   update: async (id: string, data: any) => {
-    const record = await pb.collection('restaurant_settings').update(id, data);
+    const { data: record, error } = await insforge.database
+      .from('restaurant_settings')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 };
 
 export const promosApi = {
   getAll: async () => {
-    const filter = restaurantFilter();
-    const records = await pb.collection('promos').getFullList({
-      filter: filter || undefined,
-    });
-    return records;
+    let query = insforge.database.from('promos').select('*');
+    query = withRestaurant(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   create: async (data: any) => {
-    const record = await pb.collection('promos').create(restaurantField(data));
+    const payload = currentRestaurantId ? { ...data, restaurant_id: currentRestaurantId } : data;
+    const { data: record, error } = await insforge.database
+      .from('promos')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   update: async (id: string, data: any) => {
-    const record = await pb.collection('promos').update(id, data);
+    const { data: record, error } = await insforge.database
+      .from('promos')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   delete: async (id: string) => {
-    await pb.collection('promos').delete(id);
+    const { error } = await insforge.database.from('promos').delete().eq('id', id);
+    if (error) throw error;
   },
 };
 
 export const tablesApi = {
   getAll: async () => {
-    const filter = restaurantFilter();
-    const records = await pb.collection('tables').getFullList({
-      filter: filter || undefined,
-      sort: 'table_number',
-    });
-    return records;
+    let query = insforge.database.from('tables').select('*').order('table_number', { ascending: true });
+    query = withRestaurant(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   create: async (data: any) => {
-    const record = await pb.collection('tables').create(restaurantField(data));
+    const payload = currentRestaurantId ? { ...data, restaurant_id: currentRestaurantId } : data;
+    const { data: record, error } = await insforge.database
+      .from('tables')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   update: async (id: string, data: any) => {
-    const record = await pb.collection('tables').update(id, data);
+    const { data: record, error } = await insforge.database
+      .from('tables')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return record;
   },
 
   delete: async (id: string) => {
-    await pb.collection('tables').delete(id);
+    const { error } = await insforge.database.from('tables').delete().eq('id', id);
+    if (error) throw error;
   },
 };
-
-export default pb;

@@ -1,4 +1,4 @@
-import { pbClient } from './client';
+import { insforge } from './client';
 import type { SupportedLanguage } from '../../utils/languageResolver';
 
 export interface MenuItemTranslation {
@@ -34,22 +34,17 @@ export class TranslationResolver {
 
   private async loadMenuItemTranslations(): Promise<void> {
     try {
-      const records = await pbClient.collection('menu_item_translations').getFullList();
-      
-      console.log(`📦 Loaded ${records.length} menu item translations`);
+      const { data: records, error } = await insforge.database
+        .from('menu_item_translations')
+        .select('*');
+      if (error) throw error;
       
       this.menuItemTranslations.clear();
-      for (const record of records as unknown as MenuItemTranslation[]) {
+      for (const record of (records || []) as MenuItemTranslation[]) {
         if (!this.menuItemTranslations.has(record.menu_item)) {
           this.menuItemTranslations.set(record.menu_item, new Map());
         }
         this.menuItemTranslations.get(record.menu_item)!.set(record.language, record.description);
-        console.log(`   → item="${record.menu_item}", lang="${record.language}", desc="${record.description.substring(0, 30)}..."`);
-      }
-      
-      console.log(`📋 Final Map size: ${this.menuItemTranslations.size} items`);
-      for (const [itemId, langs] of this.menuItemTranslations.entries()) {
-        console.log(`   Item "${itemId}":`, Array.from(langs.keys()));
       }
     } catch (e: any) {
       console.warn('⚠️ menu_item_translations collection not found, skipping translations');
@@ -58,10 +53,13 @@ export class TranslationResolver {
 
   private async loadCategoryTranslations(): Promise<void> {
     try {
-      const records = await pbClient.collection('category_translations').getFullList();
+      const { data: records, error } = await insforge.database
+        .from('category_translations')
+        .select('*');
+      if (error) throw error;
       
       this.categoryTranslations.clear();
-      for (const record of records as unknown as CategoryTranslation[]) {
+      for (const record of (records || []) as CategoryTranslation[]) {
         if (!this.categoryTranslations.has(record.category_code)) {
           this.categoryTranslations.set(record.category_code, new Map());
         }
@@ -74,10 +72,13 @@ export class TranslationResolver {
 
   private async loadUiTranslations(): Promise<void> {
     try {
-      const records = await pbClient.collection('ui_translations').getFullList();
+      const { data: records, error } = await insforge.database
+        .from('ui_translations')
+        .select('*');
+      if (error) throw error;
       
       this.uiTranslations.clear();
-      for (const record of records as unknown as UiTranslation[]) {
+      for (const record of (records || []) as UiTranslation[]) {
         if (!this.uiTranslations.has(record.key)) {
           this.uiTranslations.set(record.key, new Map());
         }

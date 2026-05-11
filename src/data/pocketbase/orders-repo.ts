@@ -1,42 +1,65 @@
 import type { OrdersRealtimeRepository, OrdersRepository } from '../contracts';
 import type { Order, OrderStatus, OrderItem } from '../../core/types';
-import { pbClient } from './client';
+import { insforge } from './client';
 import { toOrder } from './mappers';
 
 export class PocketBaseOrdersRepository
   implements OrdersRepository, OrdersRealtimeRepository
 {
   async create(orderData: Omit<Order, 'id'> & { id?: string }): Promise<Order> {
-    const id = orderData.id || Math.random().toString(36).slice(2, 8).toUpperCase();
-    const order = await pbClient.collection('orders').create({
-      ...orderData,
-      id,
-      timestamp: Date.now(),
-      statusTimestamps: {
-        recibido: Date.now(),
-      },
-    });
+    const now = Date.now();
+    const payload = {
+      restaurant_id: orderData.restaurant_id || null,
+      customer_name: orderData.customerName,
+      customer_address: orderData.customerAddress,
+      items: orderData.items,
+      total: orderData.total,
+      delivery_fee: orderData.deliveryFee || 0,
+      delivery_distance_km: orderData.deliveryDistanceKm || 0,
+      status: orderData.status || 'recibido',
+      payment_method: orderData.paymentMethod || 'efectivo',
+      pay_with_amount: orderData.payWithAmount || 0,
+      order_type: orderData.order_type || 'pickup',
+      notes: orderData.notes || '',
+      session_id: orderData.sessionId || '',
+      transfer_screenshot: orderData.transferScreenshot || '',
+      timestamp: now,
+      status_timestamps: { recibido: now },
+    };
 
-    // Auto-deduct stock for inventory-tracked items
+    const { data, error } = await insforge.database
+      .from('orders')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) throw error;
+
     await this._deductStock(orderData.items);
 
-    return toOrder(order as any);
+    return toOrder(data as any);
   }
 
-  /** Deduct stock for each item in the order that has inventory tracking enabled. */
   private async _deductStock(items: OrderItem[]): Promise<void> {
     for (const item of items) {
       if (!item.id) continue;
       try {
-        const record = await pbClient.collection('menu_items').getOne(item.id);
+        const { data: record, error } = await insforge.database
+          .from('menu_items')
+          .select('stock, track_inventory')
+          .eq('id', item.id)
+          .single();
+        if (error || !record) continue;
+
         const currentStock = record.stock;
         const trackInventory = record.track_inventory;
 
-        // Skip if not tracking inventory or stock is unlimited (-1/undefined)
         if (!trackInventory || currentStock === undefined || currentStock === -1 || currentStock === null) continue;
 
         const newStock = Math.max(0, currentStock - item.quantity);
-        await pbClient.collection('menu_items').update(item.id, { stock: newStock });
+        await insforge.database
+          .from('menu_items')
+          .update({ stock: newStock })
+          .eq('id', item.id);
       } catch (err) {
         console.warn(`[Inventory] Failed to deduct stock for item ${item.id}:`, err);
       }
@@ -44,52 +67,68 @@ export class PocketBaseOrdersRepository
   }
 
   async getById(id: string): Promise<Order> {
-    const order = await pbClient.collection('orders').getOne(id);
-    return toOrder(order as any);
+    const { data, error } = await insforge.database
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw error;
+    return toOrder(data as any);
   }
 
   async getAll(restaurantId?: string, status?: OrderStatus): Promise<Order[]> {
-    const filters: string[] = [];
-    if (status) filters.push(`status = "${status}"`);
-    if (restaurantId) filters.push(`restaurant_id = "${restaurantId}"`);
-    const orders = await pbClient.collection('orders').getFullList({
-      filter: filters.length > 0 ? filters.join(' && ') : undefined,
-      sort: '-timestamp',
-    });
-    return orders.map((order) => toOrder(order as any));
+    let query = insforge.database.from('orders').select('*').order('timestamp', { ascending: false });
+    if (status) query = query.eq('status', status);
+    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((order: any) => toOrder(order));
   }
 
   async getActive(restaurantId?: string): Promise<Order[]> {
-    const filters: string[] = ["status != 'entregado' && status != 'paid' && status != 'cancelled'"];
-    if (restaurantId) filters.push(`restaurant_id = "${restaurantId}"`);
-    const orders = await pbClient.collection('orders').getFullList({
-      filter: filters.join(' && '),
-      sort: '-timestamp',
-    });
-    return orders.map((order) => toOrder(order as any));
+    let query = insforge.database
+      .from('orders')
+      .select('*')
+      .not('status', 'in', '("entregado","paid","cancelled")')
+      .order('timestamp', { ascending: false });
+    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((order: any) => toOrder(order));
   }
 
   async updateStatus(orderId: string, status: OrderStatus): Promise<Order> {
-    const currentOrder = await pbClient.collection('orders').getOne(orderId);
+    const { data: current } = await insforge.database
+      .from('orders')
+      .select('status_timestamps')
+      .eq('id', orderId)
+      .single();
     const statusTimestamps = {
-      ...(currentOrder.statusTimestamps || {}),
+      ...(current?.status_timestamps || {}),
       [status]: Date.now(),
     };
-
-    const order = await pbClient.collection('orders').update(orderId, {
-      status,
-      statusTimestamps,
-    });
-    return toOrder(order as any);
+    const { data, error } = await insforge.database
+      .from('orders')
+      .update({ status, status_timestamps: statusTimestamps })
+      .eq('id', orderId)
+      .select()
+      .single();
+    if (error) throw error;
+    return toOrder(data as any);
   }
 
   async remove(orderId: string): Promise<void> {
-    await pbClient.collection('orders').delete(orderId);
+    const { error } = await insforge.database.from('orders').delete().eq('id', orderId);
+    if (error) throw error;
   }
 
   async subscribeToOrders(callback: (order: Order) => void): Promise<() => void> {
-    return pbClient.collection('orders').subscribe('*', (event) => {
-      callback(toOrder(event.record as any));
+    const channel = insforge.realtime.connect();
+    const unsubscribe = channel.subscribe('orders', (payload: any) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        callback(toOrder(payload.new as any));
+      }
     });
+    return () => { unsubscribe(); channel.disconnect(); };
   }
 }
