@@ -1,0 +1,33 @@
+{
+  "feature": "004-manager-control-hub-integration",
+  "branch": "004-manager-control-hub-integration",
+  "title": "Manager Control Hub — Full Integration",
+  "status": "draft",
+  "created": "2026-05-14",
+  "spec": "specs/004-manager-control-hub-integration/spec.md",
+  "modules": [
+    "floor-editor",
+    "menu-crud",
+    "pricing",
+    "promotions-events",
+    "file-imports"
+  ],
+  "supersedes": [
+    "src/features/admin/adminApi.ts (menu CRUD)",
+    "src/features/admin/adminApi.ts (promos CRUD)",
+    "scripts/seed-menu-items.js",
+    "scripts/seed-restaurant-settings.js"
+  ],
+  "preserves": [
+    "src/features/customer/*",
+    "src/features/kitchen/*",
+    "src/features/analytics/*",
+    "src/features/dinein/*",
+    "src/features/locks/*",
+    "src/features/payments/*",
+    "src/features/promotions/*",
+    "src/core/*",
+    "src/hooks/*",
+    "lib/*"
+  ]
+}

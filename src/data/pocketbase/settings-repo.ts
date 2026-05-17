@@ -5,7 +5,7 @@ import { insforge } from './client';
 export class PocketBaseSettingsRepository implements SettingsRepository {
   async get(restaurantId?: string): Promise<AppSkinSettings | null> {
     try {
-      let query = insforge.database.from('restaurant_settings').select('*');
+      let query = insforge.database.from('restaurant_configs').select('*');
       if (restaurantId) query = query.eq('restaurant_id', restaurantId);
       const { data, error } = await query.limit(1);
       if (error) throw error;
@@ -20,7 +20,7 @@ export class PocketBaseSettingsRepository implements SettingsRepository {
   }
 
   async save(settingsData: Partial<AppSkinSettings>, restaurantId?: string): Promise<AppSkinSettings> {
-    let query = insforge.database.from('restaurant_settings').select('*');
+    let query = insforge.database.from('restaurant_configs').select('*');
     if (restaurantId) query = query.eq('restaurant_id', restaurantId);
     const { data: existing } = await query.limit(1);
 
@@ -28,7 +28,7 @@ export class PocketBaseSettingsRepository implements SettingsRepository {
       const current = existing[0] as any;
       const merged = { ...(current.data || {}), ...settingsData };
       const { data: updated, error } = await insforge.database
-        .from('restaurant_settings')
+        .from('restaurant_configs')
         .update({ data: merged })
         .eq('id', existing[0].id)
         .select();
@@ -40,7 +40,7 @@ export class PocketBaseSettingsRepository implements SettingsRepository {
       ? { restaurant_id: restaurantId, data: settingsData }
       : { data: settingsData };
     const { data: created, error } = await insforge.database
-      .from('restaurant_settings')
+      .from('restaurant_configs')
       .insert([payload])
       .select();
     if (error) throw error;
