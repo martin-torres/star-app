@@ -20,6 +20,7 @@ import {
   DataLock,
   KitchenLock,
   AdminModule,
+  ManagerHubPage,
 } from './src/features/appViews';
 import {
   QRScanner,
@@ -712,14 +713,16 @@ const App: React.FC = () => {
               <KitchenLock onUnlock={() => setKitchenUnlocked(true)} expectedPin={ui.kitchenPin} title={ui.uiText.kitchenLockTitle} accentColor={ui.primaryColor} />
             )
           ) : viewMode === 'dashboard' ? (
-            <AdminModule
-              settings={settings || {}}
-              onExit={() => {
-                setDashboardUnlocked(false);
-                setViewMode('customer');
-              }}
-              primaryColor={ui.primaryColor}
-            />
+            dashboardUnlocked ? (
+              <ManagerHubPage />
+            ) : (
+              <DataLock
+                onUnlock={() => setDashboardUnlocked(true)}
+                expectedPin={ui.adminPin}
+                title={ui.uiText.dataLockTitle}
+                accentColor={ui.primaryColor}
+              />
+            )
           ) : (
             authenticated ? (
               <DataView
