@@ -1,5 +1,5 @@
 import React from 'react';
-import { insforge } from '../data/pocketbase/client';
+import { insforge } from '../data/insforge/client';
 
 const UNLOCK_KEY = 'ldl_unlocked';
 const DISCLAIMER_KEY = 'ldl_disclaimer_accepted';

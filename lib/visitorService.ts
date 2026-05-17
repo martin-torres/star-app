@@ -1,5 +1,5 @@
 import type { VisitorRecord } from '../types';
-import { insforge } from '../src/data/pocketbase/client';
+import { insforge } from '../src/data/insforge/client';
 
 export const visitorApi = {
   async upsertVisitor(visitorData: Partial<VisitorRecord>): Promise<VisitorRecord> {
