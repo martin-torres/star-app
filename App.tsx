@@ -162,6 +162,13 @@ const App: React.FC = () => {
   const initialViewMode = urlMode;
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
 
+  // Sync viewMode when urlMode resolves (useUrlMode starts as 'customer' then updates via useEffect)
+  useEffect(() => {
+    if (urlMode !== 'customer') {
+      setViewMode(urlMode);
+    }
+  }, [urlMode]);
+
   // Handle manual refresh of analytics
   const handleRefreshAnalytics = () => {
     setAnalyticsRefreshTrigger(prev => prev + 1);

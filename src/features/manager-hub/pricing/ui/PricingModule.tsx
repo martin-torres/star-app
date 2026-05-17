@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { managerTokens } from "../../../shared/ui/managerTokens";
+import { managerTokens } from "../../../../shared/ui/managerTokens";
 import { pricingRepo, validatePrice, type PriceEntry } from "../data/pricingRepo";
 
 interface Draft {

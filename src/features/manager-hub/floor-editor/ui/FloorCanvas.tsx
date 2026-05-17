@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
 import type { ChairNode, FloorPropType, TableType } from "../domain/layoutTypes";
 import type { FloorEditorStore } from "../state/editorStore";
-import { resolveTableVisualState } from "../../../floorplan/presentation/tableVisualState";
-import type { TableStatusInput } from "../../../floorplan/domain/statusTypes";
+import { resolveTableVisualState } from "../../floorplan/presentation/tableVisualState";
+import type { TableStatusInput } from "../../floorplan/domain/statusTypes";
 import {
   addPropAt,
   addTableAt,

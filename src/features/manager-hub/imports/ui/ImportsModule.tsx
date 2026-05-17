@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { managerTokens } from "../../../shared/ui/managerTokens";
+import { managerTokens } from "../../../../shared/ui/managerTokens";
 import { menuRepo } from "../../menu";
 import { pricingRepo } from "../../pricing";
 import { promotionsRepo } from "../../promotions";

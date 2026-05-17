@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { managerTokens } from "../../../shared/ui/managerTokens";
+import { managerTokens } from "../../../../shared/ui/managerTokens";
 import { menuRepo, type MenuItem } from "../data/menuRepo";
 
 interface Draft {

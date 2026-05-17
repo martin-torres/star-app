@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { managerTokens } from "../../../shared/ui/managerTokens";
+import { managerTokens } from "../../../../shared/ui/managerTokens";
 import { promotionsRepo, type PromotionEvent, type PromotionType } from "../data/promotionsRepo";
 import { shouldWarnDay } from "../thresholdRules";
 

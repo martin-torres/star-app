@@ -1,7 +1,7 @@
-import { MenuModule } from "../../menu/ui/MenuModule";
-import { PricingModule } from "../../pricing/ui/PricingModule";
-import { PromotionsModule } from "../../promotions/ui/PromotionsModule";
-import { ImportsModule } from "../../imports/ui/ImportsModule";
+import { MenuModule } from "../menu/ui/MenuModule";
+import { PricingModule } from "../pricing/ui/PricingModule";
+import { PromotionsModule } from "../promotions/ui/PromotionsModule";
+import { ImportsModule } from "../imports/ui/ImportsModule";
 
 export type OperationsViewMode = "catalog" | "pricing" | "promos" | "imports";
 
