@@ -51,6 +51,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+_tmp_*
 .vercel
 
 # InsForge & AI agent skills
