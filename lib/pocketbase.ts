@@ -1,17 +1,37 @@
+/**
+ * Data adapter — bridges App.tsx to the InsForge repository layer.
+ *
+ * This file was originally `lib/pocketbase.ts`. It now imports from
+ * `src/data/insforge/` which queries the 2y542jyv schema (restaurant-platform
+ * 36-table layout) via @insforge/sdk.
+ *
+ * The adapter API surface stays the same so App.tsx needs no changes.
+ */
+
 import type { MenuItem, Order, OrderStatus, RestaurantTable } from '../types';
 import type { AppSkinSettings } from '../src/core/types';
-import { menuRepository, ordersRepository, insforge, settingsRepository, tablesRepository } from '../src/data/pocketbase';
+import {
+  InsForgeMenuRepository,
+  InsForgeOrdersRepository,
+  InsForgeSettingsRepository,
+  InsForgeTablesRepository,
+  insforge,
+} from '../src/data/insforge';
+
+const menuRepository = new InsForgeMenuRepository();
+const ordersRepository = new InsForgeOrdersRepository();
+const settingsRepository = new InsForgeSettingsRepository();
+const tablesRepository = new InsForgeTablesRepository();
+
+// ── Promos ───────────────────────────────────────────────────────────────────
 
 export const promosApi = {
   getActive: async (restaurantId?: string): Promise<any[]> => {
     try {
-      let query = insforge.database.from('promos').select('*');
-      if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []).map((r: any) => ({
+      const items = await menuRepository.getActivePromos(restaurantId);
+      return items.map((r) => ({
         id: r.id,
-        name: r.code || r.name,
+        name: r.name,
         description: r.description,
         price: r.price || 0,
         category: 'promo',
@@ -25,6 +45,8 @@ export const promosApi = {
   },
 };
 
+// ── Menu Items ───────────────────────────────────────────────────────────────
+
 export const menuItemsApi = {
   getAll: async (restaurantId?: string): Promise<MenuItem[]> =>
     menuRepository.getAll(restaurantId),
@@ -34,6 +56,8 @@ export const menuItemsApi = {
     (await menuRepository.getActivePromos(restaurantId)) as any as MenuItem[],
   getById: async (id: string): Promise<MenuItem> => menuRepository.getById(id),
 };
+
+// ── Orders ───────────────────────────────────────────────────────────────────
 
 export const ordersApi = {
   create: async (orderData: Omit<Order, 'id'> & { id?: string }): Promise<Order> =>
@@ -54,12 +78,16 @@ export const ordersApi = {
 export const subscribeToOrders = (callback: (order: Order) => void) =>
   ordersRepository.subscribeToOrders(callback);
 
+// ── Settings ─────────────────────────────────────────────────────────────────
+
 export const settingsApi = {
   get: async (restaurantId?: string): Promise<AppSkinSettings | null> =>
     settingsRepository.get(restaurantId),
   save: async (settings: Partial<AppSkinSettings>, restaurantId?: string): Promise<AppSkinSettings> =>
     settingsRepository.save(settings, restaurantId),
 };
+
+// ── Tables ───────────────────────────────────────────────────────────────────
 
 export const tablesApi = {
   getAll: async (restaurantId: string): Promise<RestaurantTable[]> =>
@@ -75,6 +103,8 @@ export const tablesApi = {
   delete: async (id: string): Promise<void> =>
     tablesRepository.delete(id),
 };
+
+// ── Restaurants (direct queries) ──────────────────────────────────────────────
 
 export const restaurantsApi = {
   getById: async (id: string) => {
@@ -115,6 +145,8 @@ export const restaurantsApi = {
   },
 };
 
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
 export const authApi = {
   login: async (email: string, password: string) =>
     insforge.auth.signInWithPassword({ email, password }),
@@ -129,6 +161,8 @@ export const authApi = {
     return !!insforge.getHttpClient().getHeaders()['Authorization'];
   },
 };
+
+// ── File Upload ──────────────────────────────────────────────────────────────
 
 export const uploadFile = async (file: File): Promise<string> => {
   const path = `screenshots/${Date.now()}_${file.name}`;
