@@ -8,7 +8,11 @@ import type { ManagerModuleRoute } from "./managerTypes";
 import { switchManagerModule } from "./moduleSwitchController";
 import type { TableStatus, TableStatusInput } from "../floorplan/domain/statusTypes";
 
-export function ManagerHubPage() {
+interface ManagerHubPageProps {
+  restaurantId?: string;
+}
+
+export function ManagerHubPage({ restaurantId: _restaurantId }: ManagerHubPageProps) {
   const [route, setRoute] = useState<ManagerModuleRoute>("floor-plan");
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [floorStore, setFloorStore] = useState<FloorEditorStore>(() => loadFloorPlanStore() ?? initialEditorStore);
@@ -95,6 +99,7 @@ export function ManagerHubPage() {
           onToggleLeft={() => {}}
           onToggleRight={() => setRightCollapsed((prev) => !prev)}
           tableStatusMap={tableStatusMap}
+          restaurantId={_restaurantId}
         />
       </div>
     </main>

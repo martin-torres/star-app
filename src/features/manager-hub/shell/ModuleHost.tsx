@@ -21,6 +21,7 @@ interface ModuleHostProps {
   onToggleLeft(): void;
   onToggleRight(): void;
   tableStatusMap?: Record<string, TableStatusInput>;
+  restaurantId?: string;
 }
 
 const TABLE_TYPES: Array<{ value: TableType; label: string; icon: string }> = [
@@ -64,6 +65,7 @@ export function ModuleHost({
   rightCollapsed,
   onToggleRight,
   tableStatusMap,
+  restaurantId,
 }: ModuleHostProps): ReactNode {
   const [opsViewMode, setOpsViewMode] = useState<OperationsViewMode>("catalog");
 
@@ -98,7 +100,29 @@ export function ModuleHost({
   }
 
   if (route === "operations") {
-    return <OperationsModule viewMode={opsViewMode} />;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0 }}>
+        <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 6, display: "flex", gap: 6, alignItems: "center", overflowX: "auto" }}>
+          {OPS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setOpsViewMode(tab.value)}
+              style={{
+                border: "1px solid #d1d5db",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 13,
+                background: opsViewMode === tab.value ? "#111827" : "#fff",
+                color: opsViewMode === tab.value ? "#fff" : "#111827",
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+        <OperationsModule viewMode={opsViewMode} restaurantId={restaurantId ?? ""} />
+      </div>
+    );
   }
 
   return null;

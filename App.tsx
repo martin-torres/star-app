@@ -714,7 +714,7 @@ const App: React.FC = () => {
             )
           ) : viewMode === 'dashboard' ? (
             dashboardUnlocked ? (
-              <ManagerHubPage />
+              <ManagerHubPage restaurantId={restaurantId ?? undefined} />
             ) : (
               <DataLock
                 onUnlock={() => setDashboardUnlocked(true)}
