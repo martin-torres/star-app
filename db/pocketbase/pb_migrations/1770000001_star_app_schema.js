@@ -279,7 +279,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -356,7 +355,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -430,7 +428,33 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000028",
+                "id": "text100000028",
+                "name": "telegram_bot_token",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "text",
+                "autogeneratePattern": "",
+                "max": 0,
+                "min": 0,
+                "pattern": ""
+            },
+            {
+                "hidden": false,
+                "id": "text100000029",
+                "name": "telegram_chat_id",
+                "presentable": false,
+                "required": false,
+                "system": false,
+                "type": "text",
+                "autogeneratePattern": "",
+                "max": 0,
+                "min": 0,
+                "pattern": ""
+            },
+            {
+                "hidden": false,
+                "id": "autodate100000030",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -440,7 +464,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000029",
+                "id": "autodate100000031",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -463,7 +487,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -485,7 +508,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000030",
+                "id": "text100000032",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": false,
@@ -498,7 +521,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000031",
+                "id": "text100000033",
                 "name": "name",
                 "presentable": false,
                 "required": true,
@@ -511,7 +534,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000032",
+                "id": "text100000034",
                 "name": "description",
                 "presentable": false,
                 "required": false,
@@ -524,7 +547,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000033",
+                "id": "number100000035",
                 "name": "price",
                 "presentable": false,
                 "required": false,
@@ -536,7 +559,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000034",
+                "id": "text100000036",
                 "name": "category",
                 "presentable": false,
                 "required": false,
@@ -549,7 +572,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000035",
+                "id": "text100000037",
                 "name": "image_url",
                 "presentable": false,
                 "required": false,
@@ -562,7 +585,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000036",
+                "id": "bool100000038",
                 "name": "is_weight_based",
                 "presentable": false,
                 "system": false,
@@ -570,7 +593,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000037",
+                "id": "number100000039",
                 "name": "weight_price_per_kg",
                 "presentable": false,
                 "required": false,
@@ -582,7 +605,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000038",
+                "id": "number100000040",
                 "name": "weight_in_grams",
                 "presentable": false,
                 "required": false,
@@ -594,7 +617,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000039",
+                "id": "json100000041",
                 "name": "options",
                 "presentable": false,
                 "system": false,
@@ -603,7 +626,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000040",
+                "id": "text100000042",
                 "name": "strain",
                 "presentable": false,
                 "required": false,
@@ -616,7 +639,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000041",
+                "id": "bool100000043",
                 "name": "is_available",
                 "presentable": false,
                 "system": false,
@@ -624,7 +647,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000042",
+                "id": "number100000044",
                 "name": "stock",
                 "presentable": false,
                 "required": false,
@@ -636,7 +659,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000043",
+                "id": "bool100000045",
                 "name": "track_inventory",
                 "presentable": false,
                 "system": false,
@@ -644,7 +667,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000044",
+                "id": "text100000046",
                 "name": "station",
                 "presentable": false,
                 "required": false,
@@ -657,7 +680,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000045",
+                "id": "autodate100000047",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -667,7 +690,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000046",
+                "id": "autodate100000048",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -691,7 +714,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -713,7 +735,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000047",
+                "id": "text100000049",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": false,
@@ -726,7 +748,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000048",
+                "id": "text100000050",
                 "name": "name",
                 "presentable": false,
                 "required": false,
@@ -739,7 +761,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000049",
+                "id": "text100000051",
                 "name": "description",
                 "presentable": false,
                 "required": false,
@@ -752,7 +774,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000050",
+                "id": "number100000052",
                 "name": "price",
                 "presentable": false,
                 "required": false,
@@ -764,7 +786,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000051",
+                "id": "text100000053",
                 "name": "image_url",
                 "presentable": false,
                 "required": false,
@@ -777,7 +799,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000052",
+                "id": "text100000054",
                 "name": "category",
                 "presentable": false,
                 "required": false,
@@ -790,7 +812,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000053",
+                "id": "bool100000055",
                 "name": "active",
                 "presentable": false,
                 "system": false,
@@ -798,7 +820,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000054",
+                "id": "text100000056",
                 "name": "code",
                 "presentable": false,
                 "required": false,
@@ -811,7 +833,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000055",
+                "id": "select100000057",
                 "name": "type",
                 "presentable": false,
                 "required": false,
@@ -825,7 +847,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000056",
+                "id": "text100000058",
                 "name": "offer_type",
                 "presentable": false,
                 "required": false,
@@ -838,7 +860,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000057",
+                "id": "text100000059",
                 "name": "offer_value",
                 "presentable": false,
                 "required": false,
@@ -851,7 +873,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000058",
+                "id": "select100000060",
                 "name": "discount_type",
                 "presentable": false,
                 "required": false,
@@ -866,7 +888,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000059",
+                "id": "number100000061",
                 "name": "discount_value",
                 "presentable": false,
                 "required": false,
@@ -878,7 +900,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000060",
+                "id": "number100000062",
                 "name": "original_price",
                 "presentable": false,
                 "required": false,
@@ -890,7 +912,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000061",
+                "id": "json100000063",
                 "name": "bundle_items",
                 "presentable": false,
                 "system": false,
@@ -899,7 +921,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000062",
+                "id": "text100000064",
                 "name": "item_id",
                 "presentable": false,
                 "required": false,
@@ -912,7 +934,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "date100000063",
+                "id": "date100000065",
                 "name": "target_date",
                 "presentable": false,
                 "required": false,
@@ -923,7 +945,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000064",
+                "id": "number100000066",
                 "name": "target_weekday",
                 "presentable": false,
                 "required": false,
@@ -935,7 +957,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000065",
+                "id": "json100000067",
                 "name": "conditions",
                 "presentable": false,
                 "system": false,
@@ -944,7 +966,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000066",
+                "id": "json100000068",
                 "name": "action",
                 "presentable": false,
                 "system": false,
@@ -953,7 +975,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000067",
+                "id": "autodate100000069",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -963,7 +985,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000068",
+                "id": "autodate100000070",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -987,7 +1009,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": "",
@@ -1009,7 +1030,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000069",
+                "id": "text100000071",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": false,
@@ -1022,7 +1043,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000070",
+                "id": "text100000072",
                 "name": "table_id",
                 "presentable": false,
                 "required": false,
@@ -1035,7 +1056,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000071",
+                "id": "text100000073",
                 "name": "customer_name",
                 "presentable": false,
                 "required": false,
@@ -1048,7 +1069,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000072",
+                "id": "text100000074",
                 "name": "customer_address",
                 "presentable": false,
                 "required": false,
@@ -1061,7 +1082,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000073",
+                "id": "json100000075",
                 "name": "items",
                 "presentable": false,
                 "system": false,
@@ -1070,7 +1091,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000074",
+                "id": "number100000076",
                 "name": "total",
                 "presentable": false,
                 "required": false,
@@ -1082,7 +1103,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000075",
+                "id": "number100000077",
                 "name": "subtotal",
                 "presentable": false,
                 "required": false,
@@ -1094,7 +1115,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000076",
+                "id": "number100000078",
                 "name": "tax",
                 "presentable": false,
                 "required": false,
@@ -1106,7 +1127,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000077",
+                "id": "number100000079",
                 "name": "delivery_fee",
                 "presentable": false,
                 "required": false,
@@ -1118,7 +1139,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000078",
+                "id": "text100000080",
                 "name": "status",
                 "presentable": false,
                 "required": false,
@@ -1131,7 +1152,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000079",
+                "id": "text100000081",
                 "name": "payment_method",
                 "presentable": false,
                 "required": false,
@@ -1144,7 +1165,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000080",
+                "id": "number100000082",
                 "name": "pay_with_amount",
                 "presentable": false,
                 "required": false,
@@ -1156,7 +1177,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000081",
+                "id": "text100000083",
                 "name": "transfer_screenshot",
                 "presentable": false,
                 "required": false,
@@ -1169,7 +1190,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000082",
+                "id": "number100000084",
                 "name": "delivery_distance_km",
                 "presentable": false,
                 "required": false,
@@ -1181,7 +1202,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000083",
+                "id": "select100000085",
                 "name": "order_type",
                 "presentable": false,
                 "required": false,
@@ -1196,7 +1217,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000084",
+                "id": "text100000086",
                 "name": "notes",
                 "presentable": false,
                 "required": false,
@@ -1209,7 +1230,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000085",
+                "id": "text100000087",
                 "name": "session_id",
                 "presentable": false,
                 "required": false,
@@ -1222,7 +1243,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000086",
+                "id": "number100000088",
                 "name": "timestamp",
                 "presentable": false,
                 "required": false,
@@ -1234,7 +1255,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000087",
+                "id": "json100000089",
                 "name": "status_timestamps",
                 "presentable": false,
                 "system": false,
@@ -1243,7 +1264,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000088",
+                "id": "text100000090",
                 "name": "kitchen_status",
                 "presentable": false,
                 "required": false,
@@ -1256,7 +1277,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000089",
+                "id": "text100000091",
                 "name": "bar_status",
                 "presentable": false,
                 "required": false,
@@ -1269,7 +1290,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000090",
+                "id": "text100000092",
                 "name": "foh_request_status",
                 "presentable": false,
                 "required": false,
@@ -1282,7 +1303,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000091",
+                "id": "autodate100000093",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -1292,7 +1313,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000092",
+                "id": "autodate100000094",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -1307,17 +1328,16 @@ migrate((app) => {
             "CREATE INDEX `idx_orders_status` ON `orders` (`status`)",
             "CREATE INDEX `idx_orders_session` ON `orders` (`session_id`)"
         ],
-        "listRule": null,
+        "listRule": "@request.auth.id != \"\"",
         "name": "orders",
         "system": false,
         "type": "base",
-        "updateRule": null,
-        "viewRule": null
+        "updateRule": "@request.auth.id != \"\"",
+        "viewRule": "@request.auth.id != \"\""
     });
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -1339,7 +1359,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000093",
+                "id": "text100000095",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -1352,7 +1372,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000094",
+                "id": "number100000096",
                 "name": "table_number",
                 "presentable": false,
                 "required": false,
@@ -1364,7 +1384,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000095",
+                "id": "text100000097",
                 "name": "display_name",
                 "presentable": false,
                 "required": false,
@@ -1377,7 +1397,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000096",
+                "id": "number100000098",
                 "name": "seats",
                 "presentable": false,
                 "required": false,
@@ -1389,7 +1409,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000097",
+                "id": "text100000099",
                 "name": "location",
                 "presentable": false,
                 "required": false,
@@ -1402,7 +1422,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000098",
+                "id": "text100000100",
                 "name": "qr_code_url",
                 "presentable": false,
                 "required": false,
@@ -1415,7 +1435,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000099",
+                "id": "number100000101",
                 "name": "x",
                 "presentable": false,
                 "required": false,
@@ -1427,7 +1447,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000100",
+                "id": "number100000102",
                 "name": "y",
                 "presentable": false,
                 "required": false,
@@ -1439,7 +1459,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000101",
+                "id": "number100000103",
                 "name": "width",
                 "presentable": false,
                 "required": false,
@@ -1451,7 +1471,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000102",
+                "id": "number100000104",
                 "name": "height",
                 "presentable": false,
                 "required": false,
@@ -1463,7 +1483,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000103",
+                "id": "number100000105",
                 "name": "rotation",
                 "presentable": false,
                 "required": false,
@@ -1475,7 +1495,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000104",
+                "id": "select100000106",
                 "name": "shape",
                 "presentable": false,
                 "required": false,
@@ -1492,7 +1512,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000105",
+                "id": "bool100000107",
                 "name": "is_available",
                 "presentable": false,
                 "system": false,
@@ -1500,7 +1520,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000106",
+                "id": "autodate100000108",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -1510,7 +1530,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000107",
+                "id": "autodate100000109",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -1533,7 +1553,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": "",
@@ -1555,7 +1574,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000108",
+                "id": "text100000110",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -1568,7 +1587,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000109",
+                "id": "text100000111",
                 "name": "table_id",
                 "presentable": false,
                 "required": false,
@@ -1581,7 +1600,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000110",
+                "id": "text100000112",
                 "name": "customer_name",
                 "presentable": false,
                 "required": false,
@@ -1594,7 +1613,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000111",
+                "id": "text100000113",
                 "name": "customer_phone",
                 "presentable": false,
                 "required": false,
@@ -1607,7 +1626,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000112",
+                "id": "select100000114",
                 "name": "status",
                 "presentable": false,
                 "required": false,
@@ -1624,7 +1643,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000113",
+                "id": "json100000115",
                 "name": "order_ids",
                 "presentable": false,
                 "system": false,
@@ -1633,7 +1652,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000114",
+                "id": "number100000116",
                 "name": "session_start",
                 "presentable": false,
                 "required": false,
@@ -1645,7 +1664,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000115",
+                "id": "number100000117",
                 "name": "session_end",
                 "presentable": false,
                 "required": false,
@@ -1657,7 +1676,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000116",
+                "id": "autodate100000118",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -1667,7 +1686,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000117",
+                "id": "autodate100000119",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -1690,7 +1709,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": "",
@@ -1712,7 +1730,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000118",
+                "id": "text100000120",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -1725,7 +1743,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000119",
+                "id": "text100000121",
                 "name": "table_id",
                 "presentable": false,
                 "required": false,
@@ -1738,7 +1756,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000120",
+                "id": "json100000122",
                 "name": "order_ids",
                 "presentable": false,
                 "system": false,
@@ -1747,7 +1765,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000121",
+                "id": "number100000123",
                 "name": "subtotal",
                 "presentable": false,
                 "required": false,
@@ -1759,7 +1777,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000122",
+                "id": "number100000124",
                 "name": "tax",
                 "presentable": false,
                 "required": false,
@@ -1771,7 +1789,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000123",
+                "id": "number100000125",
                 "name": "tip",
                 "presentable": false,
                 "required": false,
@@ -1783,7 +1801,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000124",
+                "id": "number100000126",
                 "name": "total",
                 "presentable": false,
                 "required": false,
@@ -1795,7 +1813,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000125",
+                "id": "select100000127",
                 "name": "status",
                 "presentable": false,
                 "required": false,
@@ -1811,7 +1829,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000126",
+                "id": "json100000128",
                 "name": "payments",
                 "presentable": false,
                 "system": false,
@@ -1820,7 +1838,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000127",
+                "id": "number100000129",
                 "name": "requested_at",
                 "presentable": false,
                 "required": false,
@@ -1832,7 +1850,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000128",
+                "id": "autodate100000130",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -1842,7 +1860,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000129",
+                "id": "autodate100000131",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -1865,7 +1883,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": "",
@@ -1887,7 +1904,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000130",
+                "id": "text100000132",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": false,
@@ -1900,7 +1917,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000131",
+                "id": "text100000133",
                 "name": "sessionId",
                 "presentable": false,
                 "required": false,
@@ -1913,7 +1930,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000132",
+                "id": "text100000134",
                 "name": "userAgent",
                 "presentable": false,
                 "required": false,
@@ -1926,7 +1943,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000133",
+                "id": "text100000135",
                 "name": "deviceType",
                 "presentable": false,
                 "required": false,
@@ -1939,7 +1956,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000134",
+                "id": "bool100000136",
                 "name": "isPwaInstalled",
                 "presentable": false,
                 "system": false,
@@ -1947,7 +1964,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000135",
+                "id": "text100000137",
                 "name": "ip",
                 "presentable": false,
                 "required": false,
@@ -1960,7 +1977,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000136",
+                "id": "text100000138",
                 "name": "first_visit",
                 "presentable": false,
                 "required": false,
@@ -1973,7 +1990,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000137",
+                "id": "text100000139",
                 "name": "last_visit",
                 "presentable": false,
                 "required": false,
@@ -1986,7 +2003,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000138",
+                "id": "number100000140",
                 "name": "visit_count",
                 "presentable": false,
                 "required": false,
@@ -1998,7 +2015,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000139",
+                "id": "json100000141",
                 "name": "associated_orders",
                 "presentable": false,
                 "system": false,
@@ -2007,7 +2024,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000140",
+                "id": "text100000142",
                 "name": "name",
                 "presentable": false,
                 "required": false,
@@ -2020,7 +2037,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000141",
+                "id": "text100000143",
                 "name": "phone",
                 "presentable": false,
                 "required": false,
@@ -2033,7 +2050,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000142",
+                "id": "bool100000144",
                 "name": "leadCaptured",
                 "presentable": false,
                 "system": false,
@@ -2041,7 +2058,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000143",
+                "id": "autodate100000145",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2051,7 +2068,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000144",
+                "id": "autodate100000146",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2064,17 +2081,16 @@ migrate((app) => {
         "indexes": [
             "CREATE INDEX `idx_visitors_session` ON `visitors` (`sessionId`)"
         ],
-        "listRule": null,
+        "listRule": "@request.auth.id != \"\"",
         "name": "visitors",
         "system": false,
         "type": "base",
         "updateRule": null,
-        "viewRule": null
+        "viewRule": "@request.auth.id != \"\""
     });
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -2096,7 +2112,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000145",
+                "id": "text100000147",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2109,7 +2125,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000146",
+                "id": "number100000148",
                 "name": "canvas_w",
                 "presentable": false,
                 "required": false,
@@ -2121,7 +2137,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000147",
+                "id": "number100000149",
                 "name": "canvas_h",
                 "presentable": false,
                 "required": false,
@@ -2133,7 +2149,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000148",
+                "id": "number100000150",
                 "name": "grid_size",
                 "presentable": false,
                 "required": false,
@@ -2145,7 +2161,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000149",
+                "id": "autodate100000151",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2155,7 +2171,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000150",
+                "id": "autodate100000152",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2178,7 +2194,6 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -2200,7 +2215,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000151",
+                "id": "text100000153",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2213,7 +2228,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000152",
+                "id": "text100000154",
                 "name": "floor_plan_id",
                 "presentable": false,
                 "required": false,
@@ -2226,7 +2241,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000153",
+                "id": "text100000155",
                 "name": "prop_type",
                 "presentable": false,
                 "required": false,
@@ -2239,7 +2254,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000154",
+                "id": "number100000156",
                 "name": "x",
                 "presentable": false,
                 "required": false,
@@ -2251,7 +2266,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000155",
+                "id": "number100000157",
                 "name": "y",
                 "presentable": false,
                 "required": false,
@@ -2263,7 +2278,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000156",
+                "id": "number100000158",
                 "name": "width",
                 "presentable": false,
                 "required": false,
@@ -2275,7 +2290,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000157",
+                "id": "number100000159",
                 "name": "height",
                 "presentable": false,
                 "required": false,
@@ -2287,7 +2302,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000158",
+                "id": "number100000160",
                 "name": "rotation",
                 "presentable": false,
                 "required": false,
@@ -2299,7 +2314,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000159",
+                "id": "autodate100000161",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2309,7 +2324,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000160",
+                "id": "autodate100000162",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2332,10 +2347,9 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
-        "createRule": null,
+        "createRule": "@request.auth.id != \"\"",
         "deleteRule": null,
         "fields": [
             {
@@ -2354,7 +2368,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000161",
+                "id": "text100000163",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2367,7 +2381,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000162",
+                "id": "select100000164",
                 "name": "kind",
                 "presentable": false,
                 "required": false,
@@ -2382,7 +2396,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000163",
+                "id": "select100000165",
                 "name": "status",
                 "presentable": false,
                 "required": false,
@@ -2399,7 +2413,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000164",
+                "id": "json100000166",
                 "name": "summary",
                 "presentable": false,
                 "system": false,
@@ -2408,7 +2422,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000165",
+                "id": "json100000167",
                 "name": "errors",
                 "presentable": false,
                 "system": false,
@@ -2417,7 +2431,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000166",
+                "id": "text100000168",
                 "name": "file_name",
                 "presentable": false,
                 "required": false,
@@ -2430,7 +2444,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000167",
+                "id": "autodate100000169",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2440,7 +2454,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000168",
+                "id": "autodate100000170",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2453,21 +2467,20 @@ migrate((app) => {
         "indexes": [
             "CREATE INDEX `idx_import_jobs_restaurant_created` ON `import_jobs` (`restaurant_id`, `created_at`)"
         ],
-        "listRule": null,
+        "listRule": "@request.auth.id != \"\"",
         "name": "import_jobs",
         "system": false,
         "type": "base",
-        "updateRule": null,
-        "viewRule": null
+        "updateRule": "@request.auth.id != \"\"",
+        "viewRule": "@request.auth.id != \"\""
     });
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
-        "createRule": null,
-        "deleteRule": null,
+        "createRule": "@request.auth.id != \"\"",
+        "deleteRule": "@request.auth.id != \"\"",
         "fields": [
             {
                 "autogeneratePattern": "[a-z0-9]{15}",
@@ -2485,7 +2498,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000169",
+                "id": "text100000171",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2498,7 +2511,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000170",
+                "id": "text100000172",
                 "name": "name",
                 "presentable": false,
                 "required": true,
@@ -2511,7 +2524,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "select100000171",
+                "id": "select100000173",
                 "name": "role",
                 "presentable": false,
                 "required": false,
@@ -2529,7 +2542,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000172",
+                "id": "text100000174",
                 "name": "pin",
                 "presentable": false,
                 "required": false,
@@ -2542,7 +2555,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000173",
+                "id": "bool100000175",
                 "name": "is_active",
                 "presentable": false,
                 "system": false,
@@ -2550,7 +2563,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000174",
+                "id": "autodate100000176",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2560,7 +2573,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000175",
+                "id": "autodate100000177",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2573,20 +2586,19 @@ migrate((app) => {
         "indexes": [
             "CREATE INDEX `idx_staff_restaurant` ON `staff` (`restaurant_id`)"
         ],
-        "listRule": null,
+        "listRule": "@request.auth.id != \"\"",
         "name": "staff",
         "system": false,
         "type": "base",
-        "updateRule": null,
-        "viewRule": null
+        "updateRule": "@request.auth.id != \"\"",
+        "viewRule": "@request.auth.id != \"\""
     });
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
-        "createRule": null,
+        "createRule": "@request.auth.id != \"\"",
         "deleteRule": null,
         "fields": [
             {
@@ -2605,7 +2617,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000176",
+                "id": "text100000178",
                 "name": "staff_id",
                 "presentable": false,
                 "required": true,
@@ -2618,7 +2630,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000177",
+                "id": "text100000179",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2631,7 +2643,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "date100000178",
+                "id": "date100000180",
                 "name": "clock_in",
                 "presentable": false,
                 "required": false,
@@ -2642,7 +2654,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "date100000179",
+                "id": "date100000181",
                 "name": "clock_out",
                 "presentable": false,
                 "required": false,
@@ -2653,7 +2665,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000180",
+                "id": "number100000182",
                 "name": "tables_served",
                 "presentable": false,
                 "required": false,
@@ -2665,7 +2677,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000181",
+                "id": "number100000183",
                 "name": "total_tips",
                 "presentable": false,
                 "required": false,
@@ -2677,7 +2689,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "number100000182",
+                "id": "number100000184",
                 "name": "total_sales",
                 "presentable": false,
                 "required": false,
@@ -2689,7 +2701,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000183",
+                "id": "autodate100000185",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2699,7 +2711,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000184",
+                "id": "autodate100000186",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2712,17 +2724,16 @@ migrate((app) => {
         "indexes": [
             "CREATE INDEX `idx_staff_shifts_staff` ON `staff_shifts` (`staff_id`)"
         ],
-        "listRule": null,
+        "listRule": "@request.auth.id != \"\"",
         "name": "staff_shifts",
         "system": false,
         "type": "base",
-        "updateRule": null,
-        "viewRule": null
+        "updateRule": "@request.auth.id != \"\"",
+        "viewRule": "@request.auth.id != \"\""
     });
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
         "createRule": null,
@@ -2744,7 +2755,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000185",
+                "id": "text100000187",
                 "name": "restaurant_id",
                 "presentable": false,
                 "required": true,
@@ -2757,7 +2768,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "text100000186",
+                "id": "text100000188",
                 "name": "slug",
                 "presentable": false,
                 "required": true,
@@ -2770,7 +2781,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "bool100000187",
+                "id": "bool100000189",
                 "name": "enabled",
                 "presentable": false,
                 "system": false,
@@ -2778,7 +2789,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "json100000188",
+                "id": "json100000190",
                 "name": "settings",
                 "presentable": false,
                 "system": false,
@@ -2787,7 +2798,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000189",
+                "id": "autodate100000191",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2797,7 +2808,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000190",
+                "id": "autodate100000192",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2820,10 +2831,9 @@ migrate((app) => {
 
     app.save(collection);
   }
-
   {
     const collection = new Collection({
-        "createRule": "",
+        "createRule": "@request.auth.id != \"\"",
         "deleteRule": null,
         "fields": [
             {
@@ -2842,7 +2852,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "file100000191",
+                "id": "file100000193",
                 "name": "file",
                 "presentable": false,
                 "system": false,
@@ -2861,7 +2871,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000192",
+                "id": "autodate100000194",
                 "name": "created_at",
                 "onCreate": true,
                 "onUpdate": false,
@@ -2871,7 +2881,7 @@ migrate((app) => {
             },
             {
                 "hidden": false,
-                "id": "autodate100000193",
+                "id": "autodate100000195",
                 "name": "updated_at",
                 "onCreate": true,
                 "onUpdate": true,
@@ -2892,24 +2902,93 @@ migrate((app) => {
 
     app.save(collection);
   }
+  {
+    // Extend the collection PocketBase already seeded. Only missing
+    // fields are added, so this block is safe to re-run.
+    const collection = app.findCollectionByNameOrId("users");
+    const additions = [
+        {
+            "hidden": false,
+            "id": "select100900001",
+            "name": "role",
+            "presentable": false,
+            "required": false,
+            "system": false,
+            "type": "select",
+            "maxSelect": 1,
+            "values": [
+                "owner",
+                "manager",
+                "staff"
+            ]
+        },
+        {
+            "hidden": false,
+            "id": "text100900002",
+            "name": "restaurant_id",
+            "presentable": false,
+            "required": false,
+            "system": false,
+            "type": "text",
+            "autogeneratePattern": "",
+            "max": 0,
+            "min": 0,
+            "pattern": ""
+        },
+        {
+            "hidden": false,
+            "id": "bool100900003",
+            "name": "is_active",
+            "presentable": false,
+            "system": false,
+            "type": "bool"
+        }
+    ];
+    for (let i = 0; i < additions.length; i++) {
+      if (!collection.fields.getByName(additions[i].name)) {
+        collection.fields.add(new Field(additions[i]));
+      }
+    }
+    collection.listRule = "id = @request.auth.id";
+    collection.viewRule = "id = @request.auth.id";
+    collection.createRule = null;
+    collection.updateRule = "id = @request.auth.id";
+    collection.deleteRule = null;
 
+    app.save(collection);
+  }
   return null;
 }, (app) => {
-  app.delete(app.findCollectionByNameOrId("pbc_3760176746"));
-  app.delete(app.findCollectionByNameOrId("pbc_3286942618"));
-  app.delete(app.findCollectionByNameOrId("pbc_0408994708"));
-  app.delete(app.findCollectionByNameOrId("pbc_1114567570"));
-  app.delete(app.findCollectionByNameOrId("pbc_1170178885"));
-  app.delete(app.findCollectionByNameOrId("pbc_2304758686"));
-  app.delete(app.findCollectionByNameOrId("pbc_3880182247"));
-  app.delete(app.findCollectionByNameOrId("pbc_2071241791"));
-  app.delete(app.findCollectionByNameOrId("pbc_4135131280"));
-  app.delete(app.findCollectionByNameOrId("pbc_0532987283"));
-  app.delete(app.findCollectionByNameOrId("pbc_1977220560"));
-  app.delete(app.findCollectionByNameOrId("pbc_3845127662"));
-  app.delete(app.findCollectionByNameOrId("pbc_0835843845"));
-  app.delete(app.findCollectionByNameOrId("pbc_1890765354"));
-  app.delete(app.findCollectionByNameOrId("pbc_1121156968"));
-  app.delete(app.findCollectionByNameOrId("pbc_3319819818"));
-  app.delete(app.findCollectionByNameOrId("pbc_2911074084"));
+  {
+    const collection = app.findCollectionByNameOrId("users");
+    const names = ["role", "restaurant_id", "is_active"];
+    for (let i = 0; i < names.length; i++) {
+      const f = collection.fields.getByName(names[i]);
+      if (f) { collection.fields.removeById(f.id); }
+    }
+    collection.listRule = "id = @request.auth.id";
+    collection.viewRule = "id = @request.auth.id";
+    collection.createRule = "";
+    collection.updateRule = "id = @request.auth.id";
+    collection.deleteRule = "id = @request.auth.id";
+
+    app.save(collection);
+  }
+  app.delete(app.findCollectionByNameOrId("images"));
+  app.delete(app.findCollectionByNameOrId("app_modules"));
+  app.delete(app.findCollectionByNameOrId("staff_shifts"));
+  app.delete(app.findCollectionByNameOrId("staff"));
+  app.delete(app.findCollectionByNameOrId("import_jobs"));
+  app.delete(app.findCollectionByNameOrId("floor_props"));
+  app.delete(app.findCollectionByNameOrId("floor_plans"));
+  app.delete(app.findCollectionByNameOrId("visitors"));
+  app.delete(app.findCollectionByNameOrId("bill_requests"));
+  app.delete(app.findCollectionByNameOrId("dining_sessions"));
+  app.delete(app.findCollectionByNameOrId("restaurant_tables"));
+  app.delete(app.findCollectionByNameOrId("orders"));
+  app.delete(app.findCollectionByNameOrId("promos"));
+  app.delete(app.findCollectionByNameOrId("menu_items"));
+  app.delete(app.findCollectionByNameOrId("private_settings"));
+  app.delete(app.findCollectionByNameOrId("restaurant_settings"));
+  app.delete(app.findCollectionByNameOrId("restaurants"));
 })

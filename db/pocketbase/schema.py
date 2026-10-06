@@ -243,7 +243,11 @@ COLLECTIONS = [
             ("auto", "", {}),
         ],
         ["CREATE INDEX `idx_visitors_session` ON `visitors` (`sessionId`)"],
-        {"listRule": None, "viewRule": None, "createRule": "", "updateRule": None, "deleteRule": None},
+        # create stays open (first-visit row from the browser; counters are forced
+        # server-side by the create hook). Reads are manager-only; the returning-visit
+        # bump goes through POST /api/star/visitor-touch.
+        {"listRule": "@request.auth.id != \"\"", "viewRule": "@request.auth.id != \"\"",
+         "createRule": "", "updateRule": None, "deleteRule": None},
     ),
     (
         "floor_plans", "base", [
@@ -282,7 +286,9 @@ COLLECTIONS = [
             ("auto", "", {}),
         ],
         ["CREATE INDEX `idx_import_jobs_restaurant_created` ON `import_jobs` (`restaurant_id`, `created_at`)"],
-        {"listRule": None, "viewRule": None, "createRule": None, "updateRule": None, "deleteRule": None},
+        # manager-only: the manager Hub imports screen is the only writer/reader.
+        {"listRule": "@request.auth.id != \"\"", "viewRule": "@request.auth.id != \"\"",
+         "createRule": "@request.auth.id != \"\"", "updateRule": "@request.auth.id != \"\"", "deleteRule": None},
     ),
     (
         "staff", "base", [
@@ -294,8 +300,9 @@ COLLECTIONS = [
             ("auto", "", {}),
         ],
         ["CREATE INDEX `idx_staff_restaurant` ON `staff` (`restaurant_id`)"],
-        # manager-only: contains PINs
-        {"listRule": None, "viewRule": None, "createRule": None, "updateRule": None, "deleteRule": None},
+        # manager-only: contains PINs. Read + write for authenticated managers.
+        {"listRule": "@request.auth.id != \"\"", "viewRule": "@request.auth.id != \"\"",
+         "createRule": "@request.auth.id != \"\"", "updateRule": "@request.auth.id != \"\"", "deleteRule": "@request.auth.id != \"\""},
     ),
     (
         "staff_shifts", "base", [
@@ -309,7 +316,9 @@ COLLECTIONS = [
             ("auto", "", {}),
         ],
         ["CREATE INDEX `idx_staff_shifts_staff` ON `staff_shifts` (`staff_id`)"],
-        {"listRule": None, "viewRule": None, "createRule": None, "updateRule": None, "deleteRule": None},
+        # manager/analytics-only.
+        {"listRule": "@request.auth.id != \"\"", "viewRule": "@request.auth.id != \"\"",
+         "createRule": "@request.auth.id != \"\"", "updateRule": "@request.auth.id != \"\"", "deleteRule": None},
     ),
     (
         "app_modules", "base", [
@@ -330,7 +339,41 @@ COLLECTIONS = [
             ("auto", "", {}),
         ],
         [],
-        {"listRule": "", "viewRule": "", "createRule": "", "updateRule": None, "deleteRule": None},
+        # read is public (menu/brand images are rendered by customers), but upload
+        # is for authenticated managers only - an anonymous caller could otherwise
+        # use this instance as free file hosting.
+        {"listRule": "", "viewRule": "", "createRule": "@request.auth.id != \"\"",
+         "updateRule": None, "deleteRule": None},
+    ),
+]
+
+# --------------------------------------------------------------------------
+# PATCHES - collections that ALREADY EXIST in a fresh PocketBase database.
+#
+# PocketBase 0.40 seeds a default `users` auth collection (id
+# `_pb_users_auth_`, fields id/password/tokenKey/email/emailVisibility/verified/
+# name/avatar/created/updated, self-only rules). Creating another `users` fails
+# the whole migration with "Collection name must be unique", so the manager/staff
+# login collection is EXTENDED here instead of created.
+#
+# The default createRule is "" (anyone may self-register) - for a managers/staff
+# collection that must be closed, so createRule/deleteRule are set to null
+# (superuser-only) and reads stay self-only.
+# --------------------------------------------------------------------------
+
+PATCHES = [
+    (
+        "users",
+        [
+            ("role", "select", {"values": ["owner", "manager", "staff"]}),
+            ("restaurant_id", "text", {}),
+            ("is_active", "bool", {}),
+        ],
+        {"listRule": "id = @request.auth.id", "viewRule": "id = @request.auth.id",
+         "createRule": None, "updateRule": "id = @request.auth.id", "deleteRule": None},
+        # PocketBase's own defaults, restored on rollback.
+        {"listRule": "id = @request.auth.id", "viewRule": "id = @request.auth.id",
+         "createRule": "", "updateRule": "id = @request.auth.id", "deleteRule": "id = @request.auth.id"},
     ),
 ]
 
@@ -417,6 +460,7 @@ def build():
                 "viewRule": rules["viewRule"],
             },
             "cid": cid,
+            "name": cname,
         })
     return out_collections
 
@@ -431,16 +475,62 @@ FOOTER_UP = "  return null;\n}, (app) => {\n"
 FOOTER_DOWN = "})\n"
 
 
+def emit_collection(item):
+    return ("  {\n    const collection = new Collection(" +
+            json.dumps(item["collection"], indent=4).replace("\n", "\n    ") +
+            ");\n\n    app.save(collection);\n  }\n")
+
+
+def emit_patch(name, fields, rules):
+    flist = [make_field(fn, fk, fo, 900000 + i + 1)
+             for i, (fn, fk, fo) in enumerate(fields)]
+    out = "  {\n"
+    out += "    // Extend the collection PocketBase already seeded. Only missing\n"
+    out += "    // fields are added, so this block is safe to re-run.\n"
+    out += "    const collection = app.findCollectionByNameOrId(" + json.dumps(name) + ");\n"
+    out += "    const additions = " + json.dumps(flist, indent=4).replace("\n", "\n    ") + ";\n"
+    out += "    for (let i = 0; i < additions.length; i++) {\n"
+    out += "      if (!collection.fields.getByName(additions[i].name)) {\n"
+    out += "        collection.fields.add(new Field(additions[i]));\n"
+    out += "      }\n"
+    out += "    }\n"
+    for k, v in rules.items():
+        out += "    collection." + k + " = " + json.dumps(v) + ";\n"
+    out += "\n    app.save(collection);\n  }\n"
+    return out
+
+
+def emit_patch_rollback(name, fields, rules):
+    names = [f[0] for f in fields]
+    out = "  {\n"
+    out += "    const collection = app.findCollectionByNameOrId(" + json.dumps(name) + ");\n"
+    out += "    const names = " + json.dumps(names) + ";\n"
+    out += "    for (let i = 0; i < names.length; i++) {\n"
+    out += "      const f = collection.fields.getByName(names[i]);\n"
+    out += "      if (f) { collection.fields.removeById(f.id); }\n"
+    out += "    }\n"
+    for k, v in rules.items():
+        out += "    collection." + k + " = " + json.dumps(v) + ";\n"
+    out += "\n    app.save(collection);\n  }\n"
+    return out
+
+
 def main():
     cols = build()
     print(HEADER, end="")
     for item in cols:
-        print("  {\n    const collection = new Collection(" +
-              json.dumps(item["collection"], indent=4).replace("\n", "\n    ") +
-              ");\n\n    app.save(collection);\n  }\n")
+        print(emit_collection(item), end="")
+    for name, fields, rules, _rollback in PATCHES:
+        print(emit_patch(name, fields, rules), end="")
     print(FOOTER_UP, end="")
+    # Rollback: undo the patches, then drop the created collections. Delete by
+    # NAME, not id: PocketBase rewrites the id of an `auth` collection named
+    # "users" to the well-known `_pb_users_auth_`, so a generated cid would not
+    # resolve.
+    for name, fields, _rules, rollback in reversed(PATCHES):
+        print(emit_patch_rollback(name, fields, rollback), end="")
     for item in reversed(cols):
-        print(f'  app.delete(app.findCollectionByNameOrId("{item["cid"]}"));')
+        print(f'  app.delete(app.findCollectionByNameOrId("{item["name"]}"));')
     print(FOOTER_DOWN, end="")
 
 
