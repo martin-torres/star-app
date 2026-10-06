@@ -5,13 +5,7 @@
  * `src/data/pocketbase/legacy-insforge.ts` exist only as a migration bridge for
  * pre-006 feature code and should be deleted once those callers move here.
  */
-export {
-  pb,
-  PocketBase,
-  POCKETBASE_URL,
-  DEFAULT_POCKETBASE_URL,
-  insforge,
-} from './client';
+export { pb, PocketBase, POCKETBASE_URL, DEFAULT_POCKETBASE_URL } from './client';
 export { COLLECTIONS, resolveCollectionName, type CollectionName } from './collections';
 export { and, eq, isNull, neq, oneOf, orderBy, pbLiteral, sortBy, type SortDirection } from './query';
 export { asRecord, firstOrNull, isNotFound } from './read';

@@ -29,12 +29,4 @@ pb.autoCancellation(false);
 
 export { PocketBase };
 
-/**
- * @deprecated Compatibility export for pre-migration code
- * (`src/features/admin/adminApi.ts` imports `{ insforge }` from this module).
- * It is a PocketBase-backed facade with the old InsForge query-builder shape;
- * prefer `pb` or the typed repositories. Remove once features migrate.
- */
-export { insforge } from './legacy-insforge';
-
 export default pb;
