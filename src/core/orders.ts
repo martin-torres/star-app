@@ -8,6 +8,8 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   listo: ['en_camino', 'entregado'],
   en_camino: ['entregado'],
   entregado: [],
+  paid: [],
+  cancelled: [],
 };
 
 export const canTransitionOrderStatus = (

@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getTranslationResolver } from '../data/insforge/translation-resolver';
-import type { SupportedLanguage } from '../utils/languageResolver';
+import { getTranslationResolver } from '../data/pocketbase/translation-resolver';
 
 export function useTranslations() {
   const { language } = useLanguage();

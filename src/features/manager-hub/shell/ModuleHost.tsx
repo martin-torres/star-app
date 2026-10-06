@@ -3,6 +3,8 @@ import type { FloorPropType, TableType } from "../floor-editor/domain/layoutType
 import { FloorCanvas } from "../floor-editor/ui/FloorCanvas";
 import { RightInspectorPanel } from "../floor-editor/ui/RightInspectorPanel";
 import type { FloorEditorStore } from "../floor-editor/state/editorStore";
+import { floorPlanFromStore } from "../floor-editor/state/planAdapter";
+import { FloorPlanLegend, FloorPlanView } from "../../floorplan";
 import { AnalyticsPlaceholder } from "./AnalyticsPlaceholder";
 import { OperationsModule, type OperationsViewMode } from "./OperationsModule";
 import type { ManagerModuleRoute } from "./managerTypes";
@@ -42,6 +44,13 @@ const PROP_TYPES: Array<{ value: FloorPropType; label: string; icon: string }> =
   { value: "kitchen_area", label: "Kitchen", icon: "🍽" },
 ];
 
+const OPS_TABS: Array<{ value: OperationsViewMode; label: string; icon: string }> = [
+  { value: "catalog", label: "Catalog", icon: "📖" },
+  { value: "pricing", label: "Pricing", icon: "🏷" },
+  { value: "promos", label: "Promos", icon: "🎯" },
+  { value: "imports", label: "Imports", icon: "📥" },
+];
+
 function onTableDragStart(event: React.DragEvent<HTMLButtonElement>, tableType: TableType, setType: (v: TableType) => void) {
   event.dataTransfer.setData("application/x-floor-editor-item", JSON.stringify({ kind: "table", tableType }));
   event.dataTransfer.effectAllowed = "copy";
@@ -68,12 +77,33 @@ export function ModuleHost({
   restaurantId,
 }: ModuleHostProps): ReactNode {
   const [opsViewMode, setOpsViewMode] = useState<OperationsViewMode>("catalog");
+  const [floorViewMode, setFloorViewMode] = useState<"edit" | "live">("edit");
 
   if (route === "floor-plan") {
+    const plan = floorPlanFromStore(floorStore, restaurantId ?? "");
     return (
       <section style={{ display: "grid", gridTemplateColumns: `1fr ${rightCollapsed ? "56px" : "240px"}`, gap: 10, minHeight: 0 }}>
         <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 8, minHeight: 0 }}>
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 8, display: "flex", gap: 8, alignItems: "center", overflowX: "auto" }}>
+            <div style={{ display: "flex", gap: 4, border: "1px solid #d1d5db", borderRadius: 8, padding: 2 }}>
+              {(["edit", "live"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setFloorViewMode(mode)}
+                  style={{
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "4px 10px",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    background: floorViewMode === mode ? "#111827" : "transparent",
+                    color: floorViewMode === mode ? "#fff" : "#111827",
+                  }}
+                >
+                  {mode === "edit" ? "Editor" : "Vista en vivo"}
+                </button>
+              ))}
+            </div>
             <strong style={{ fontSize: 12, color: "#6b7280" }}>Tables</strong>
             {TABLE_TYPES.map((type) => (
               <button key={type.value} draggable onDragStart={(e) => onTableDragStart(e, type.value, onAddTableTypeChange)} title={type.label} style={{ border: "1px solid #d1d5db", borderRadius: 8, padding: "6px 8px", background: addTableType === type.value ? "#eff6ff" : "#fff" }}>
@@ -87,7 +117,16 @@ export function ModuleHost({
               </button>
             ))}
           </div>
-          <FloorCanvas store={floorStore} onStoreChange={onFloorStoreChange} addTableType={addTableType} addPropType={addPropType} tableStatusMap={tableStatusMap} />
+          {floorViewMode === "edit" ? (
+            <FloorCanvas store={floorStore} onStoreChange={onFloorStoreChange} addTableType={addTableType} addPropType={addPropType} tableStatusMap={tableStatusMap} />
+          ) : (
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, overflow: "auto" }}>
+              <FloorPlanView plan={plan} mode="live" statusMap={tableStatusMap} />
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f3f4f6" }}>
+                <FloorPlanLegend variant="status" />
+              </div>
+            </div>
+          )}
         </div>
 
         <RightInspectorPanel store={floorStore} onStoreChange={onFloorStoreChange} collapsed={rightCollapsed} onToggleCollapse={onToggleRight} />

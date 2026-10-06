@@ -1,6 +1,6 @@
-import type { ChairNode, FloorProp, FloorPropType, FloorTable, TableType } from "../domain/layoutTypes";
+import type { ChairNode, FloorProp, FloorPropType, FloorTable } from "../domain/layoutTypes";
 import { canPlaceTable } from "../domain/overlapGuards";
-import { previewSeatChange, resolveAutoSeatCount } from "../domain/seatSizingRules";
+import { resolveAutoSeatCount } from "../domain/seatSizingRules";
 import {
   clampPosition,
   clampRectToBounds,

@@ -18,7 +18,10 @@ import {
   Smartphone,
 } from 'lucide-react';
 import type { OrderStatus } from '../../core/types';
+import type { MenuItem, OrderItem, Order, CustomerInfo, DeliveryType, PaymentMethod } from '../../core/types';
 import type { ResolvedUiSettings } from '../../core/uiSettings';
+
+type CustomerScreen = 'landing' | 'menu' | 'cart' | 'checkout' | 'tracking';
 import { TabBar } from './components/TabBar';
 import { LanguageSelector } from './components/LanguageSelector';
 import { WeightOrderModal } from './components/WeightOrderModal';
@@ -156,7 +159,15 @@ export const MenuView = ({
   settings,
   primaryColor = '#f59e0b',
   secondaryColor = '#ea580c',
-}: any) => {
+}: {
+  addToCart: (item: MenuItem) => void;
+  setCart: React.Dispatch<React.SetStateAction<OrderItem[]>>;
+  setActiveScreen: (screen: CustomerScreen) => void;
+  menuItems: MenuItem[];
+  settings: ResolvedUiSettings;
+  primaryColor?: string;
+  secondaryColor?: string;
+}) => {
   const { t, getItemDescription } = useTranslations();
   const { isUnlocked } = useUnlockState();
   const categories = settings?.categories || [];
@@ -779,11 +790,16 @@ export const TrackingView = ({
   primaryColor = '#f59e0b',
   currency = 'MXN',
   uiText,
-}: any) => {
+}: {
+  currentOrder: Order | null;
+  setActiveScreen: (screen: CustomerScreen) => void;
+  primaryColor?: string;
+  currency?: string;
+  uiText?: ResolvedUiSettings['uiText'];
+}) => {
   const { t } = useTranslations();
   if (!currentOrder) return null;
   const statusSteps: OrderStatus[] = ['recibido', 'preparando', 'listo', 'en_camino', 'entregado'];
-  const currentIdx = statusSteps.indexOf(currentOrder.status);
 
   const getStatusText = () => {
     switch (currentOrder.status) {

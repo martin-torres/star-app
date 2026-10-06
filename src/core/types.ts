@@ -1,3 +1,8 @@
+// `TableShape` is owned by the floor-plan feature (the one geometry vocabulary).
+// Type-only import: erased at runtime, no dependency cycle (floorplan never
+// imports core).
+import type { TableShape } from '../features/floorplan/model/floorPlan';
+
 export type OrderStatus =
   | 'recibido'
   | 'preparando'
@@ -247,6 +252,11 @@ export interface RestaurantTable {
   qr_code_url?: string;
   x?: number;
   y?: number;
+  /** Floor-plan geometry (written by the manager editor, read by every surface). */
+  width?: number;
+  height?: number;
+  rotation?: number;
+  shape?: TableShape;
   is_available: boolean;
 }
 

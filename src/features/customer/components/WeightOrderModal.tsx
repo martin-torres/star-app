@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Weight, DollarSign, Check } from 'lucide-react';
+import { X, Weight, DollarSign } from 'lucide-react';
 import type { MenuItem } from '../../../core/types';
 
 interface WeightOrderModalProps {
@@ -16,8 +16,6 @@ export const WeightOrderModal = ({
   item,
   onClose,
   onConfirm,
-  primaryColor = '#f59e0b',
-  secondaryColor = '#ea580c',
 }: WeightOrderModalProps) => {
   const [inputMode, setInputMode] = React.useState<'grams' | 'price'>('grams');
   const [inputValue, setInputValue] = React.useState('');

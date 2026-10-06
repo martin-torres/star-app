@@ -1,13 +1,15 @@
-export type FloorPropType =
-  | "stage"
-  | "bathroom"
-  | "staircase"
-  | "window"
-  | "main_door"
-  | "door"
-  | "kitchen_area";
+/**
+ * Editor domain types.
+ *
+ * `TableType` and `FloorPropType` are ALIASES of the canonical floor-plan
+ * vocabulary in `src/features/floorplan/model/floorPlan.ts`. Do not redeclare the
+ * unions here — a second definition is exactly how the editor and the customer
+ * view drifted apart before.
+ */
+import type { FloorPropKind, TableShape } from "../../../floorplan/model/floorPlan";
 
-export type TableType = "square" | "rectangle" | "circular" | "booth" | "l_shaped";
+export type TableType = TableShape;
+export type FloorPropType = FloorPropKind;
 
 export interface ChairNode {
   chairId: string;

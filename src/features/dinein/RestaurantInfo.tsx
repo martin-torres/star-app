@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Clock, Users, Tag, ArrowLeft } from 'lucide-react';
+import { MapPin, Clock, Users, Tag } from 'lucide-react';
 
 interface RestaurantBrief {
   id: string;

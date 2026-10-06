@@ -1,0 +1,9 @@
+{
+  "//": "Real typecheck. `tsconfig.app.json` alone is masked by the unreachable, syntactically-broken src/features/payments/mercadopago.ts (a syntax error suppresses ALL semantic diagnostics project-wide). This config excludes that dead directory so genuine type errors surface. Delete the exclude once src/features/payments/ is removed.",
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "App.tsx", "index.tsx", "types.ts", "lib"],
+  "exclude": ["src/features/payments", "node_modules", "dist", "dev-dist"]
+}

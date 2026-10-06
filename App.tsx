@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, VisitorRecord, RestaurantTable, DineInStage } from './types';
+import type { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, RestaurantTable, DineInStage } from './types';
 import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tablesApi, restaurantsApi, uploadFile } from './lib/pocketbase';
 import { useUrlMode } from './src/hooks/useUrlMode';
 import { useVisitorTracking } from './src/hooks/useVisitorTracking';
@@ -20,9 +20,9 @@ import {
   KitchenView,
   DataLock,
   KitchenLock,
-  AdminModule,
   ManagerHubPage,
 } from './src/features/appViews';
+import { WeightOrderModal } from './src/features/customer/components/WeightOrderModal';
 import {
   QRScanner,
   RestaurantInfoView,
@@ -31,6 +31,8 @@ import {
   BillPayment,
   PaymentCompleteScreen,
 } from './src/features/dinein';
+import { loadDineInPlan } from './src/features/dinein/loadDineInPlan';
+import { emptyFloorPlan, type FloorPlan } from './src/features/floorplan';
 
 type ViewMode = 'customer' | 'admin' | 'data' | 'dashboard';
 type CustomerScreen = 'landing' | 'menu' | 'cart' | 'checkout' | 'tracking';
@@ -51,7 +53,7 @@ const App: React.FC = () => {
   const [promos, setPromos] = useState<PromoItem[]>([]);
   const [settings, setSettings] = useState<AppSkinSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
-  const { visitor, visitorId, sessionId, associateVisitorWithOrder } = useVisitorTracking();
+  const { associateVisitorWithOrder } = useVisitorTracking();
 
   const restaurantId = getRestaurantIdFromUrl();
   const urlMode = useUrlMode();
@@ -80,6 +82,10 @@ const App: React.FC = () => {
   const [dineInOrders, setDineInOrders] = useState<OrderItem[]>([]);
   const [qrError, setQrError] = useState<string | null>(null);
   const [billData, setBillData] = useState<any>(null);
+  // The customer's floor plan. Loaded once per restaurant and shared with the
+  // same renderer the manager editor uses, so the formation is identical.
+  const [dineInPlan, setDineInPlan] = useState<FloorPlan>(() => emptyFloorPlan());
+  const [dineInPlanLoading, setDineInPlanLoading] = useState(false);
 
   // To-go state
   const [cart, setCart] = useState<OrderItem[]>([]);
@@ -241,7 +247,7 @@ const App: React.FC = () => {
           bundleItems: (item as PromoItem).bundleItems,
         }];
       });
-    } else if (item.isWeightBased || (item as any).weightInGrams) {
+    } else if ('isWeightBased' in item && item.isWeightBased) {
       setSelectedWeightItem(item);
       setShowWeightModal(true);
     } else {
@@ -261,7 +267,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleWeightOrderConfirm = (weightInGrams: number) => {
+  const handleWeightOrderConfirm = (weightInGrams: number, _price: number) => {
     if (selectedWeightItem && weightInGrams > 0) {
       const itemWithWeight = {
         ...selectedWeightItem,
@@ -442,6 +448,30 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Load the dine-in floor plan when the customer reaches table selection.
+  // This is a top-level hook: the previous version called useState/useEffect
+  // inside the `table-selection` switch case, which violates the rules of hooks
+  // and crashes `App` whenever that case renders.
+  useEffect(() => {
+    if (dineInStage !== 'table-selection' || !currentRestaurant?.id) return;
+    let cancelled = false;
+    setDineInPlanLoading(true);
+    loadDineInPlan(currentRestaurant.id)
+      .then((plan) => {
+        if (!cancelled) setDineInPlan(plan);
+      })
+      .catch((err) => {
+        console.error('Error loading floor plan:', err);
+        if (!cancelled) setDineInPlan(emptyFloorPlan(currentRestaurant.id));
+      })
+      .finally(() => {
+        if (!cancelled) setDineInPlanLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dineInStage, currentRestaurant?.id]);
+
   const handleContinueOrdering = useCallback(() => {
     setDineInStage('dining');
     // In a real app, we'd navigate to the menu screen
@@ -466,7 +496,7 @@ const App: React.FC = () => {
     setDineInStage('bill');
   }, [dineInOrders]);
 
-  const handlePaymentComplete = useCallback((paidAmount: number, paidItems: string[]) => {
+  const handlePaymentComplete = useCallback((_paidAmount: number, _paidItems: string[]) => {
     setDineInStage('payment-complete');
     // Auto-reset after showing payment complete
     setTimeout(() => {
@@ -479,15 +509,8 @@ const App: React.FC = () => {
     }, 3000);
   }, []);
 
-  const handleAddDineInItem = useCallback((item: MenuItem) => {
-    setDineInOrders(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
-  }, []);
+  // NOTE: dine-in ordering is not wired yet — this handler was dead code. When
+  // the dine-in menu path is built, it should feed `dineInOrders` from MenuView.
 
   // ================================================================
   // RENDER
@@ -546,24 +569,22 @@ const App: React.FC = () => {
             />
           ) : null;
 
-        case 'table-selection': {
-          // Load tables for this restaurant
-          const [tables, setTables] = React.useState<RestaurantTable[]>([]);
-          React.useEffect(() => {
-            if (currentRestaurant?.id) {
-              tablesApi.getAll(currentRestaurant.id).then(setTables).catch(console.error);
-            }
-          }, [currentRestaurant?.id]);
-
+        case 'table-selection':
+          if (dineInPlanLoading && dineInPlan.tables.length === 0) {
+            return (
+              <div className="flex items-center justify-center min-h-[40vh] text-gray-500 font-medium">
+                Cargando mesas…
+              </div>
+            );
+          }
           return (
             <TableSelector
-              tables={tables}
+              plan={dineInPlan}
               primaryColor={ui.primaryColor}
               secondaryColor={ui.secondaryColor}
               onSelectTable={handleTableSelection}
             />
           );
-        }
 
         case 'dining':
           return (
@@ -666,6 +687,21 @@ const App: React.FC = () => {
             primaryColor={ui.primaryColor}
             currency={ui.currency}
             uiText={ui.uiText}
+          />
+        )}
+
+        {/* Weight-based ordering: addToCart opens this; it was never rendered. */}
+        {showWeightModal && selectedWeightItem && (
+          <WeightOrderModal
+            isOpen={showWeightModal}
+            item={selectedWeightItem}
+            onClose={() => {
+              setShowWeightModal(false);
+              setSelectedWeightItem(null);
+            }}
+            onConfirm={handleWeightOrderConfirm}
+            primaryColor={ui.primaryColor}
+            secondaryColor={ui.secondaryColor}
           />
         )}
       </>

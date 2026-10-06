@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState, type CSSProperties, type DragEvent, type MouseEvent } from "react";
-import type { ChairNode, FloorPropType, TableType } from "../domain/layoutTypes";
+import type { FloorPropType, TableType } from "../domain/layoutTypes";
 import type { FloorEditorStore } from "../state/editorStore";
-import { resolveTableVisualState } from "../../floorplan/presentation/tableVisualState";
-import type { TableStatusInput } from "../../floorplan/domain/statusTypes";
+import {
+  FLOOR_BOUNDS,
+  PROP_ICONS,
+  RESIZE_LIMITS,
+  chairNodesFor,
+  floorGridBackground,
+  projectChairToPerimeter,
+  tableShapeStyle,
+} from "../../../floorplan/ui/primitives";
+import { ChairDots, TableBody } from "../../../floorplan/ui/TableBody";
+import { resolveTableVisualState, type TableStatusInput } from "../../../floorplan/status";
 import {
   addPropAt,
   addTableAt,
@@ -18,6 +27,15 @@ import {
   selectObject,
 } from "../state/editorStore";
 
+/**
+ * The floor-plan EDITOR.
+ *
+ * Geometry, shapes, chairs, prop icons and table content all come from the
+ * shared floor-plan primitives in `src/features/floorplan/ui/`, so the editor is
+ * pixel-identical to the customer picker and the manager live view. This file
+ * adds only the authoring chrome (tool mode, drag, resize handles).
+ */
+
 interface FloorCanvasProps {
   store: FloorEditorStore;
   onStoreChange(next: FloorEditorStore): void;
@@ -26,24 +44,8 @@ interface FloorCanvasProps {
   tableStatusMap?: Record<string, TableStatusInput>;
 }
 
-const BOUNDS = { minX: 0, minY: 0, maxX: 680, maxY: 400 };
-const LIMITS = { minWidth: 40, minHeight: 30, maxWidth: 240, maxHeight: 220 };
-const PROP_ICONS: Record<FloorPropType, string> = {
-  stage: "◫",
-  bathroom: "🚻",
-  staircase: "⇅",
-  window: "▣",
-  main_door: "⎋",
-  door: "⟂",
-  kitchen_area: "🍽",
-};
-const TABLE_ICONS: Record<TableType, string> = {
-  square: "◼",
-  rectangle: "▭",
-  circular: "◯",
-  booth: "⌷",
-  l_shaped: "└",
-};
+const BOUNDS = FLOOR_BOUNDS;
+const LIMITS = RESIZE_LIMITS;
 
 type DragState =
   | { type: "move_table"; id: string; startX: number; startY: number; originX: number; originY: number }
@@ -52,67 +54,6 @@ type DragState =
   | { type: "resize_prop"; id: string; startX: number; startY: number; originW: number; originH: number }
   | { type: "move_chair"; tableId: string; chairId: string; tableX: number; tableY: number; tableW: number; tableH: number }
   | null;
-
-function generateChairNodes(tableId: string, seatCount: number): ChairNode[] {
-  const nodes: ChairNode[] = [];
-  for (let i = 0; i < seatCount; i += 1) {
-    const angle = (2 * Math.PI * i) / seatCount;
-    const x = Math.cos(angle);
-    const y = Math.sin(angle);
-    const absX = Math.abs(x);
-    const absY = Math.abs(y);
-
-    if (absX > absY) {
-      nodes.push({
-        chairId: `${tableId}-AUTO-${i + 1}`,
-        tableId,
-        offsetX: x > 0 ? 0.5 : -0.5,
-        offsetY: Math.max(-0.5, Math.min(0.5, y / absX / 2)),
-        active: true,
-      });
-    } else {
-      nodes.push({
-        chairId: `${tableId}-AUTO-${i + 1}`,
-        tableId,
-        offsetX: Math.max(-0.5, Math.min(0.5, x / absY / 2)),
-        offsetY: y > 0 ? 0.5 : -0.5,
-        active: true,
-      });
-    }
-  }
-  return nodes;
-}
-
-function projectChairToPerimeter(px: number, py: number, width: number, height: number): { x: number; y: number } {
-  const cx = width / 2;
-  const cy = height / 2;
-  const dx = px - cx;
-  const dy = py - cy;
-  const nx = dx / Math.max(width / 2, 1);
-  const ny = dy / Math.max(height / 2, 1);
-  const absX = Math.abs(nx);
-  const absY = Math.abs(ny);
-
-  if (absX >= absY) {
-    return {
-      x: nx >= 0 ? 0.5 : -0.5,
-      y: Math.max(-0.5, Math.min(0.5, ny / Math.max(absX, 0.0001))),
-    };
-  }
-
-  return {
-    x: Math.max(-0.5, Math.min(0.5, nx / Math.max(absY, 0.0001))),
-    y: ny >= 0 ? 0.5 : -0.5,
-  };
-}
-
-function tableShapeStyle(tableType: TableType): Partial<CSSProperties> {
-  if (tableType === "circular") return { borderRadius: "999px" };
-  if (tableType === "booth") return { borderRadius: "14px 14px 4px 4px" };
-  if (tableType === "l_shaped") return { clipPath: "polygon(0% 0%, 100% 0%, 100% 35%, 65% 35%, 65% 100%, 0% 100%)" };
-  if (tableType === "square") return { borderRadius: 6 };
-  return { borderRadius: 10 };
-}
 
 export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, tableStatusMap }: FloorCanvasProps) {
   const [drag, setDrag] = useState<DragState>(null);
@@ -132,7 +73,7 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
             rotation: 0,
             seatCount: 4,
             seatOverride: false,
-            chairs: generateChairNodes(tableId, 4),
+            chairs: chairNodesFor(tableId, 4).map((chair) => ({ ...chair, tableId })),
           },
           x,
           y,
@@ -213,6 +154,7 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
 
     onStoreChange(selectObject(store, null, null));
   }
+
   function handleCanvasDragOver(event: DragEvent<HTMLDivElement>) {
     if (event.dataTransfer.types.includes("application/x-floor-editor-item")) {
       event.preventDefault();
@@ -287,6 +229,7 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
     if (!current) return;
     setDrag({ type: "resize_table", id: tableId, startX: event.clientX, startY: event.clientY, originW: current.width, originH: current.height });
   }
+
   function handlePropResizeDown(propId: string, event: MouseEvent<HTMLDivElement>) {
     event.stopPropagation();
     const current = store.props.find((prop) => prop.propId === propId);
@@ -318,11 +261,10 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
     height: BOUNDS.maxY,
     border: "1px solid #d1d5db",
     borderRadius: 12,
-    background:
-      "linear-gradient(0deg, rgba(243,244,246,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(243,244,246,0.55) 1px, transparent 1px)",
-    backgroundSize: "24px 24px",
     position: "relative",
     overflow: "hidden",
+    backgroundColor: "#ffffff",
+    ...floorGridBackground(),
   };
 
   const tableChairMap = useMemo(
@@ -330,7 +272,7 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
       new Map(
         store.tables.map((t) => [
           t.tableId,
-          t.chairs.length > 0 ? t.chairs : generateChairNodes(t.tableId, t.seatCount),
+          t.chairs.length > 0 ? t.chairs : chairNodesFor(t.tableId, t.seatCount).map((chair) => ({ ...chair, tableId: t.tableId })),
         ]),
       ),
     [store.tables],
@@ -343,7 +285,11 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
         if (!statusInput) {
           return [table.tableId, null] as const;
         }
-        return [table.tableId, resolveTableVisualState(statusInput)] as const;
+        try {
+          return [table.tableId, resolveTableVisualState(statusInput)] as const;
+        } catch {
+          return [table.tableId, null] as const;
+        }
       }),
     );
   }, [store.tables, tableStatusMap]);
@@ -448,51 +394,31 @@ export function FloorCanvas({ store, onStoreChange, addTableType, addPropType, t
                 background: statusBackground ?? "#f9fafb",
                 display: "grid",
                 placeItems: "center",
-                fontSize: 12,
                 fontWeight: 700,
                 cursor: store.toolMode === "select" ? "grab" : "pointer",
                 userSelect: "none",
                 ...tableShapeStyle(table.tableType),
               }}
             >
-              <div
-                style={{
-                  textAlign: "center",
-                  lineHeight: 1.15,
-                  pointerEvents: "none",
-                  transform: `rotate(${-table.rotation}deg)`,
-                }}
-              >
-                <div style={{ fontSize: 14, lineHeight: 1 }}>{TABLE_ICONS[table.tableType]}</div>
-                <div style={{ fontSize: 10, color: "#111827", fontWeight: 700 }}>{table.label}</div>
-                <div style={{ fontSize: 9, color: "#6b7280" }}>{table.seatCount}</div>
-              </div>
+              <TableBody
+                shape={table.tableType}
+                label={table.label}
+                tableNumber={Number(table.label.replace(/\D/g, "")) || 0}
+                seats={table.seatCount}
+                rotation={table.rotation}
+              />
 
-              {chairs.map((chair) => (
-                <div
-                  key={chair.chairId}
-                  onMouseDown={(event) => handleChairMouseDown(table.tableId, chair.chairId, event)}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onStoreChange(removeChair(store, table.tableId, chair.chairId));
-                  }}
-                  title="Drag to move. Right-click to remove."
-                  style={{
-                    position: "absolute",
-                    left: `${(chair.offsetX + 0.5) * 100}%`,
-                    top: `${(chair.offsetY + 0.5) * 100}%`,
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: "#ffffff",
-                    border: "1.5px solid #111827",
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "auto",
-                    cursor: "grab",
-                  }}
-                />
-              ))}
+              <ChairDots
+                chairs={chairs}
+                size={10}
+                title="Drag to move. Right-click to remove."
+                onChairPointerDown={(chairId, event) => handleChairMouseDown(table.tableId, chairId, event)}
+                onChairContextMenu={(chairId, event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onStoreChange(removeChair(store, table.tableId, chairId));
+                }}
+              />
 
               {selected && (
                 <div
