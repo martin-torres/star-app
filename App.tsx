@@ -55,7 +55,13 @@ const App: React.FC = () => {
   const [settingsLoading, setSettingsLoading] = useState(true);
   const { associateVisitorWithOrder } = useVisitorTracking();
 
-  const restaurantId = getRestaurantIdFromUrl();
+  const urlRestaurantKey = getRestaurantIdFromUrl();
+  // The URL may carry either a record id or a slug. Every query filters on
+  // `restaurant_id`, so resolve the key to the canonical record id ONCE.
+  // Without this, `restaurant_id = "<slug>"` matches nothing and the menu and
+  // table rows silently come back empty.
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantResolved, setRestaurantResolved] = useState(!urlRestaurantKey);
   const urlMode = useUrlMode();
 
   const ui = resolveUiSettings(settings);
@@ -113,8 +119,41 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Resolve id-or-slug -> canonical restaurant id before any data load.
+  useEffect(() => {
+    if (!urlRestaurantKey) {
+      setRestaurantId(null);
+      setRestaurantResolved(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const looksLikeId = /^[a-z0-9]{15}$/.test(urlRestaurantKey);
+      try {
+        let record = looksLikeId
+          ? await restaurantsApi.getById(urlRestaurantKey).catch(() => null)
+          : await restaurantsApi.getBySlug(urlRestaurantKey).catch(() => null);
+        if (!record) {
+          record = looksLikeId
+            ? await restaurantsApi.getBySlug(urlRestaurantKey).catch(() => null)
+            : await restaurantsApi.getById(urlRestaurantKey).catch(() => null);
+        }
+        if (!cancelled) setRestaurantId(record?.id ?? urlRestaurantKey);
+      } catch (err) {
+        console.error('Error resolving restaurant:', err);
+        if (!cancelled) setRestaurantId(urlRestaurantKey);
+      } finally {
+        if (!cancelled) setRestaurantResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlRestaurantKey]);
+
   // --- Load data ---
   useEffect(() => {
+    if (!restaurantResolved) return;
     setIsLoading(true);
     setError(null);
 
@@ -132,9 +171,10 @@ const App: React.FC = () => {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
   useEffect(() => {
+    if (!restaurantResolved) return;
     settingsApi
       .get(restaurantId || undefined)
       .then((data) => setSettings(data))
@@ -142,7 +182,7 @@ const App: React.FC = () => {
         console.error('Error loading restaurant settings:', err);
       })
       .finally(() => setSettingsLoading(false));
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -156,15 +196,19 @@ const App: React.FC = () => {
   }, [ui.primaryColor, ui.secondaryColor, ui.accentColor, ui.backgroundColor, ui.name]);
 
   useEffect(() => {
+    if (!restaurantResolved) return;
     promosApi.getActive(restaurantId || undefined)
       .then(items => {
         setPromos(items);
       })
       .catch(() => console.error('Error al cargar las promociones.'));
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
-  // Load active orders for kitchen
+  // Load active orders for the kitchen. Gated on the kitchen unlock: the
+  // `orders` collection is deliberately NOT anon-readable, so fetching it before
+  // the manager unlocks just produces a 403 and an empty board.
   useEffect(() => {
+    if (!restaurantResolved || !kitchenUnlocked) return;
     setKitchenLoading(true);
     ordersApi.getActive(restaurantId || undefined)
       .then(items => {
@@ -176,7 +220,7 @@ const App: React.FC = () => {
       .finally(() => {
         setKitchenLoading(false);
       });
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved, kitchenUnlocked]);
 
   const initialViewMode = urlMode;
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
@@ -193,8 +237,10 @@ const App: React.FC = () => {
     setAnalyticsRefreshTrigger(prev => prev + 1);
   };
 
-  // Fetch historical orders for analytics
+  // Fetch historical orders for analytics. Manager-only data, so wait for the
+  // unlock instead of firing an anon request that the rules will refuse.
   useEffect(() => {
+    if (!restaurantResolved || !authenticated) return;
     setAnalyticsLoading(true);
     setAnalyticsError(null);
 
@@ -209,7 +255,7 @@ const App: React.FC = () => {
       .finally(() => {
         setAnalyticsLoading(false);
       });
-  }, [analyticsRefreshTrigger, restaurantId]);
+  }, [analyticsRefreshTrigger, restaurantId, restaurantResolved, authenticated]);
 
   const handleRetry = () => {
     setError(null);
@@ -420,9 +466,16 @@ const App: React.FC = () => {
     setQrError(null);
 
     try {
-      let restaurant = await restaurantsApi.getById(restaurantIdOrSlug);
+      // PocketBase ids are 15 lowercase alphanumerics; anything else is a slug.
+      // Probing in the right order avoids a guaranteed 404 + console error.
+      const looksLikeId = /^[a-z0-9]{15}$/.test(restaurantIdOrSlug);
+      let restaurant = looksLikeId
+        ? await restaurantsApi.getById(restaurantIdOrSlug).catch(() => null)
+        : await restaurantsApi.getBySlug(restaurantIdOrSlug).catch(() => null);
       if (!restaurant) {
-        restaurant = await restaurantsApi.getBySlug(restaurantIdOrSlug);
+        restaurant = looksLikeId
+          ? await restaurantsApi.getBySlug(restaurantIdOrSlug).catch(() => null)
+          : await restaurantsApi.getById(restaurantIdOrSlug).catch(() => null);
       }
 
       if (!restaurant) {
@@ -516,7 +569,7 @@ const App: React.FC = () => {
   // RENDER
   // ================================================================
 
-  if (isLoading || settingsLoading) {
+  if (isLoading || settingsLoading || !restaurantResolved) {
     return (
       <LoadingView
         restaurantName={ui.name}
