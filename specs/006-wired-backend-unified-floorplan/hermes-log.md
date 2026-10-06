@@ -246,3 +246,78 @@ POST orders {items:[]}
 `users` ships with an open listRule). Do not create the collection — save new rules
 onto it — and remember your regenerated migration currently **fails to apply**
 because it tries to create `users` a second time (previous entry).
+
+---
+
+## 2026-10-05 20:11 — turtle: GOOD fixes, but one regression silently empties the whole product
+
+### What you fixed (verified on 0.40.4, :8101, your migration + hooks)
+
+| check | result |
+|---|---|
+| `POST orders {items:[]}` | **400 `{"ok":false,"error":"items_required"}`** — the json-string guard now fires |
+| `GET /api/star/order-status` | 200 with the caller's own order; 404 on a mismatched `session_id` |
+| anon `users` list | **0 rows** (was 200-with-rows) — `id = @request.auth.id` works |
+| anon `orders` / `visitors` / `staff` / `import_jobs` | **0 rows** |
+| migration | applies cleanly on both 0.38.1 and 0.40.4 (the duplicate `users` is gone) |
+
+### Correction I owe you
+
+My earlier "LEAKS to anon" verdict was **wrong, and my test was wrong**. PocketBase answers a
+*list* request under a filter rule that matches nothing with **HTTP 200 and `totalItems: 0`** — not
+403. I was asserting on the status code. `null` gives 403; an expression gives 200-with-zero-rows.
+Both deny. Your rules were never leaking. I've rewritten the harness to assert on **visible row
+counts**, and it now reports `status=200 visible_rows=0` for the locked collections.
+
+### REGRESSION: `menu_items` and `restaurant_tables` are now unreadable by customers
+
+Your migration sets `@request.auth.id != ""` on two collections the **anonymous customer app must
+read**. Live audit on :8101 (superuser rows vs anonymous rows):
+
+```
+  menu_items          listRule='@request.auth.id != ""'   superuser_rows=1   anon_visible=rows=0
+  restaurant_tables   listRule='@request.auth.id != ""'   superuser_rows=6   anon_visible=rows=0
+  restaurants         listRule=''                          superuser_rows=1   anon_visible=rows=1
+  floor_plans         listRule=''                          superuser_rows=1   anon_visible=rows=1
+  floor_props         listRule=''                          superuser_rows=1   anon_visible=rows=1
+  orders/visitors/staff/import_jobs/users                 anon_visible=rows=0   <- correct
+```
+
+Browser E2E against the real dev server pointed at :8101 — the product is **silently empty**:
+
+```
+PASS app loads restaurant settings
+FAIL menu_items query returns rows (slug resolved to the canonical id)  :: items=0
+[stage] ... Selecciona tu Mesa ... No hay mesas configuradas
+FAIL table selection renders the shared floor-plan canvas  :: buttons=0
+[console] no HTTP >=400   <- nothing errors; the data is just gone
+```
+
+The customer menu is empty and the table picker says "No hay mesas configuradas". No error is
+raised anywhere, because a filtered-empty list is a 200. That is the worst failure mode: it looks
+like an empty restaurant, not a broken app.
+
+### Fix
+
+These two collections are the public storefront. Give them anon read:
+
+```python
+("menu_items", "base", [...],
+  {"listRule": "", "viewRule": "", "createRule": None, "updateRule": None, "deleteRule": None}),
+
+("restaurant_tables", "base", [...],
+  {"listRule": "", "viewRule": "", "createRule": None, "updateRule": None, "deleteRule": None}),
+```
+
+Rule of thumb for this schema — anon read, superuser write:
+
+- anon read: `restaurants`, `restaurant_settings`, `menu_items`, `promos`,
+  `restaurant_tables`, `floor_plans`, `floor_props`, `app_modules`
+- anon create only: `orders`, `visitors`, `dining_sessions`, `bill_requests`
+- authenticated read: `orders`, `visitors`, `staff`, `staff_shifts`, `import_jobs`
+- never anon: `private_settings`, `users`, `images` (upload is authenticated)
+
+### Verification I need
+
+With the fix applied, re-run the browser E2E and show:
+`menu_items` returns > 0 rows for anon, and the table picker renders 6 tables.
