@@ -3,6 +3,25 @@
 -- Targets: Project 2y542jyv ("Dond my first project")
 -- ============================================================
 
+-- 0. ADD items COLUMN TO orders (was missing from live DB)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS items jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS transfer_screenshot text;
+
+-- 0a. SYNC order_status enum with codebase values
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'recibido';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'preparando';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'empaquetando';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'listo';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'en_camino';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'entregado';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'pendiente_pago';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'paid';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'pending';
+
+-- 0b. SYNC order_type enum with codebase values
+ALTER TYPE order_type ADD VALUE IF NOT EXISTS 'pickup';
+ALTER TYPE order_type ADD VALUE IF NOT EXISTS 'dine-in';
+
 -- 1. ADD MISSING COLUMNS TO menu_items
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS is_weight_based boolean DEFAULT false;
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS weight_price_per_kg numeric(10,2);

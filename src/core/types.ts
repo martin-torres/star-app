@@ -191,8 +191,9 @@ export interface AppSkinSettings {
   heroTitle?: string;
   heroSubtitle?: string;
   pickupLocationText?: string;
-  adminPin?: string;
-  kitchenPin?: string;
+  // PINs deliberately do NOT live here. They are stored as salted hashes in the
+  // server-only `private_settings` collection and verified by the PocketBase
+  // route /api/star/verify-pin - see db/pocketbase/pb_hooks/star_security.pb.js.
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;

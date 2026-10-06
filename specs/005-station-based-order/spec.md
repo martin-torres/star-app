@@ -1,4 +1,4 @@
-# Feature Specification: Station-Based Order Routing with Ticket Flow & Color Coding
+# Feature Specification: Station-Based Order Routing with Real-Time Floor Plan Color Coding
 
 **Feature Branch**: `005-station-based-order`  
 **Created**: 2026-05-17  
@@ -9,106 +9,220 @@
 
 ## Overview
 
-The existing app has a working **Manager Hub** with:
-- A floor plan editor for restaurant layout
-- Menu CRUD with station assignment (`menu_items.station`)
-- Order intake (to-go, delivery, dine-in)
+The app already has two disconnected pieces:
 
-The schema already has per-station status tracking (`orders.kitchen_status`, `bar_status`, `foh_request_status`) but **no front-end display** for it. This feature adds:
+1. **Manager Hub → Floor Plan Editor** (Phase C) — a drag-and-drop canvas where tables show **status colors** via a demo cycling system. The color map, urgency priority, and visual state resolver are built.
+2. **Order pipeline** (Phase B) — `orders` table with `kitchen_status`, `bar_status`, `foh_request_status`, `items` (JSONB), and `status_timestamps`. The `menu_items.station` column assigns each item to a station.
 
-1. **Front-end color-coded status boards** for each station (Kitchen, Bar, FOH) showing only their relevant items
-2. **Ticket flow visualization** — the journey of each order item through station handoffs
-3. **Real-time station-level status updates** in the existing kitchen/admin view and the manager dashboard
+These are currently **not wired together**. The floor plan cycles demo colors instead of reflecting real order data. The admin kitchen view (`?mode=admin`) shows a flat list with no station separation.
 
-This turns the current "single-pipeline" order tracking into a **multi-station orchestration system**.
+This feature **completes the feedback loop**:
+
+```
+Order placed → Items split by station (Kitchen/Bar/FOH)
+  → Station views show item-level progress
+  → Table status auto-calculates from per-station completion
+  → Floor plan table colors update in real-time
+  → FOH/Manager sees at a glance which tables need attention
+```
+
+The **floor plan IS the FOH/Manager visualization** — by looking at table colors, they instantly know the predominant status at each table. This is not about item-level color codes on a separate board; it's about **table-level urgency colors on the floor plan** driven by real-time order data.
+
+---
+
+## Color Coding Matrix — TABLE LEVEL (Floor Plan)
+
+These colors render on two surfaces:
+
+1. **Table shapes in the floor plan canvas** — FOH and managers see the overall state of each table at a glance
+2. **Item cards in station views** — kitchen/bar staff see their item's progress through the same color language, so they instantly know where each item stands without reading text
+
+| Urgency | Table Status | Color | Hex | Meaning |
+|---------|-------------|-------|-----|---------|
+| 🔟 Highest | `customer_request` | Red | `#ef4444` | Customer needs staff (bill, help, modification) — **immediate attention** |
+| 9️⃣ | `ready_pickup` | Light Red | `#fca5a5` | Food/drinks ready to be served to table |
+| 8️⃣ | `order_accepted` | Light Blue | `#93c5fd` | Order taken, kitchen/bar working on it |
+| 7️⃣ | `new_order` | Light Yellow | `#fde68a` | Fresh order just placed, not yet acknowledged |
+| 6️⃣ | `delivering` | Light Purple | `#c4b5fd` | Items being delivered to table |
+| 5️⃣ | `cleaning` | Cyan | `#67e8f9` | Table being cleaned/set up |
+| 4️⃣ | `reserved_only` | Amber | `#f59e0b` | Reserved for future booking |
+| 3️⃣ | `occupied_idle` | Gray | `#e5e7eb` | Occupied but no active orders |
+| 2️⃣ | `available_empty` | Transparent | — | Empty, ready for seating |
+| 1️⃣ | `delivered` | Transparent | — | Everything delivered, awaiting payment/close |
+
+> **How to read it**: Red = needs immediate attention. Yellow = fresh. Blue = working on it. Gray = idle. Transparent = done/free. A kitchen item card that's yellow just arrived; blue means cooking started; light red means ready to plate.
+
+---
+
+## Station Views — ITEM LEVEL (Kitchen/Bar Production Screens)
+
+Separate from the floor plan, **production staff** get item-level lists filtered by station.
+
+### Kitchen View (`cocina`)
+
+Flat scrollable list showing ONLY items where `menu_items.station = 'kitchen'`. Each **card's background color** matches the item's status using the same color matrix as the floor plan — staff instantly knows the state of their work:
+
+| Item Card Background | Meaning |
+|---------------------|---------|
+| **Yellow** (`#fde68a`) | Item just arrived (`recibido`) — fresh, not yet worked |
+| **Blue** (`#93c5fd`) | Item being worked (`preparando`) — in progress |
+| **Light Red** (`#fca5a5`) | Item is ready (`listo`) — done, waiting pickup |
+
+```
+┌──────────────────────────────┐
+│ 🌮 Taco al Pastor   ⏱ 4:32  │  ← card background = yellow if recibido,
+│ Mesa 5 · Ticket #A7          │     blue if preparando, light red if listo
+│ [recibido] [preparando] ✓    │
+└──────────────────────────────┘
+```
+
+- **Item-level status** (not table-level): `recibido → preparando → listo`
+- Card background transitions automatically as staff advances status
+- Buttons to advance: "Preparando" (blue) then "Listo" (green)
+- Items sorted by oldest-first, with real-time insertion of new items
+- Separate from customer_request flow (those go to FOH)
+
+### Bar View (`barra`)
+
+Same as Kitchen, but ONLY items where `menu_items.station = 'bar'`.
+Same three-state progression with matching color transitions. Independent from Kitchen.
+
+### FOH Board
+
+FOH gets a **customer request** panel (not production items). Shows:
+- Tables where `customer_request` flag is active — with the customer's note
+- Buttons: "Resuelto" (dismisses the request, table returns to previous status)
+
+### Ticket Flow Timeline
+
+Clicking any item in a station view reveals a **compact timeline**:
+```
+📥 Recibido   2:30 PM   ⏱ 0:30
+👨‍🍳 Cocina    2:31 PM   → preparando   ⏱ 4:32
+🍽 Listo      —         ⏳ en progreso
+```
+Read from `status_timestamps` JSONB on the order.
+
+---
+
+## How Station Progress Feeds the Floor Plan
+
+This is the core wiring that **does not exist yet**:
+
+```
+Order item moves to "listo" in Kitchen
+  → orders.kitchen_status = 'completed'
+    → TableStatusSyncService receives update
+      → resolveTableStatuses() re-evaluates
+        → new primary/primaryColor computed
+          → Floor canvas re-renders table fill color
+```
+
+**Aggregation rules** (how table status derives from stations):
+
+| If | Then Table Status |
+|----|-------------------|
+| Any item at table is still `recibido` in any station | `order_accepted` (blue) — still working |
+| All items at table are `listo` in all stations | `ready_pickup` (light red) — ready to serve |
+| Customer flags staff | `customer_request` (red) — overrides everything |
+| Order fully completed + paid | `delivered` (transparent) → eventually `cleaning` (cyan) |
+| No orders but table is seated | `occupied_idle` (gray) |
+
+The urgency ranking already defined in `statusPriority.ts` handles the rest — `customer_request` always wins as the highest priority, followed by `ready_pickup`, `order_accepted`, `new_order`, etc.
 
 ---
 
 ## User Scenarios & Testing
 
-### User Story 1 — Kitchen Staff Sees Their Items Only (Priority: P1)
+### User Story 1 — FOH Reads Table Status from Floor Plan (Priority: P1 🎯)
 
-The cook opens the "Cocina" view and sees only items assigned to the Kitchen station, with their own independent statuses (recibido → preparando → listo).
+A host/server looks at the floor plan and instantly knows which tables need attention by the color.
 
-**Why this priority**: Without station filtering, all items show in one list, creating confusion. This is the foundation for all other station views.
+**Why this priority**: This is the foundational value — FOH can manage the floor from a single glance. Without this, station views are just lists.
 
-**Independent Test**: Create an order with one Kitchen item and one Bar item. The Kitchen view shows only the Kitchen item. Bar view shows only the Bar item.
+**Independent Test**: Place a new order at table 3. The floor plan table 3 changes from transparent (available) to yellow (new_order). Server sees the yellow table, walks over.
 
 **Acceptance Scenarios**:
 
-1. **Given** an order with items assigned to different stations (Kitchen, Bar, FOH), **When** a staff member opens the Cocina view, **Then** only Kitchen-station items are visible
-2. **Given** the Cocina view is open, **When** a new order arrives with a Kitchen item, **Then** it appears automatically (real-time subscription)
-3. **Given** the Cocina view is open, **When** all kitchen items for an order are marked "listo", **Then** the order row shows a "Done" state and moves to a completed section
+1. **Given** an empty restaurant floor, **When** no orders exist, **Then** all tables render as `available_empty` (transparent) or `occupied_idle` (gray if occupied)
+2. **Given** a new order is placed at table 3, **When** the order contains items for Kitchen, **Then** table 3 turns yellow (`new_order`) on the floor plan within 3 seconds
+3. **Given** a table is yellow (new_order), **When** a kitchen staff taps "Preparando" on the first item, **Then** table 3 changes to blue (`order_accepted`)
+4. **Given** all items at a table reach "listo" status, **When** the final station completes, **Then** the table turns light red (`ready_pickup`)
+5. **Given** a customer needs help and triggers a request, **When** the request is submitted, **Then** the table turns red (`customer_request`) overriding any other status
 
 ---
 
-### User Story 2 — Bar Staff Sees Drink Items (Priority: P1)
+### User Story 2 — Kitchen Staff Works Their Station (Priority: P1 🎯)
 
-Bartenders see a dedicated Bar view showing only Bar-station items, with status: recibido → preparando → listo.
+Kitchen opens the Cocina view and sees only kitchen items. They advance items through prep.
 
-**Why this priority**: Bar and Kitchen operate independently. Same criticality as US1.
+**Why this priority**: Without station separation, the kitchen sees bar and FOH items too. This enables the per-station progress that feeds the floor plan colors.
 
-**Independent Test**: Same order as US1. Bar staff sees only the drink items. Can mark them "listo" without affecting Kitchen items.
+**Independent Test**: Place an order with 1 kitchen item + 1 bar item. The Cocina view shows only the kitchen item. The Bar view shows only the bar item.
 
 **Acceptance Scenarios**:
 
-1. **Given** an order with Bar items, **When** the bar view is opened, **Then** only items where `menu_items.station = 'bar'` are shown
-2. **Given** a Bar item is marked "listo" by staff, **When** the Kitchen view is checked, **Then** Kitchen items remain unaffected
-3. **Given** a Bar item is mid-preparation, **When** the bartender taps "preparando", **Then** the status updates in real-time
+1. **Given** an order with items assigned to different stations, **When** a staff member opens Cocina, **Then** only items with `station = 'kitchen'` appear
+2. **Given** an item in Cocina is marked "preparando" by staff, **When** the Bar view is checked, **Then** bar items are unaffected
+3. **Given** a kitchen item is marked "listo", **When** the floor plan is viewed, **Then** the table's status may change based on aggregation rules (see US1)
 
 ---
 
-### User Story 3 — FOH Exceptions Board (Priority: P2)
+### User Story 3 — FOH Request Board (Priority: P2)
 
-Front-of-house staff see a view for customer requests, modifications, and special instructions, with a visual alert system.
+FOH staff see a dedicated panel listing customer requests/resolved status.
 
-**Why this priority**: FOH requests are lower-volume but visibility-critical for service quality.
+**Why this priority**: Red-coded tables on the floor plan need staff to know WHY. The FOH board provides the detail behind the red color.
 
-**Independent Test**: Submit an order with a note/customer request. It appears on the FOH board with a highlighted alert.
+**Independent Test**: Mark a table with a customer request. Floor plan table turns red. Open FOH board → see the request details.
 
 **Acceptance Scenarios**:
 
-1. **Given** an order has `notes` or special instructions, **When** the FOH view loads, **Then** these are highlighted with a distinctive alert indicator
-2. **Given** an FOH request is resolved, **When** staff marks it as "resuelto", **Then** it moves to a resolved section
+1. **Given** a table has `customer_request = true`, **When** the floor plan renders, **Then** the table is red
+2. **Given** a red table on the floor plan, **When** FOH opens the request board, **Then** they see the specific request/note
+3. **Given** an FOH request is resolved, **When** staff taps "Resuelto", **Then** the table returns to its previous status-based color
 
 ---
 
 ### User Story 4 — Ticket Flow Timeline (Priority: P2)
 
-Each order item shows its journey as a visual timeline: which stations processed it, current station status, and total elapsed time.
+Any staff member can inspect an order item's journey through stations.
 
-**Why this priority**: Critical for operational visibility — knowing exactly where each item is in the process.
+**Why this priority**: Essential for finding bottlenecks. If a table has been blue for 20 minutes, staff needs to see which station is slow.
 
-**Independent Test**: Place an order with 3 items across 2 stations. The ticket timeline shows per-station progress bars and timestamps.
+**Independent Test**: Place an order, wait 2 minutes, check timeline → see recibido → preparando with elapsed times.
 
 **Acceptance Scenarios**:
 
-1. **Given** an order is being prepared, **When** staff inspects any item's detail, **Then** they see a timeline: Recibido → [Station A: Preparando] → [Station B: Listo] → Complete
-2. **Given** an item has been in "preparando" for more than a configurable threshold, **When** viewing the ticket, **Then** the timeline shows a visual warning
+1. **Given** an order being prepared, **When** staff clicks any item, **Then** a timeline shows: Recibido → [Station name: status] with timestamps
+2. **Given** an item has been in "preparando" > 15 minutes, **When** viewing the timeline, **Then** a visual bottleneck warning appears
+3. **Given** the timeline shows station handoffs, **When** the order completes, **Then** total prep time is shown
 
 ---
 
 ### User Story 5 — Manager Dashboard Station Analytics (Priority: P3)
 
-The existing Manager Analytics placeholder is replaced with real-time station throughput data: items per station per hour, average prep time, and bottleneck detection.
+The Manager Analytics module shows station throughput data instead of a placeholder.
 
 **Why this priority**: Valuable but not blocking day-to-day operations.
 
-**Independent Test**: View analytics after 3 orders across shifts — see per-station preparation time averages.
+**Independent Test**: Run 10 orders through the system, check analytics → see per-station average times.
 
 **Acceptance Scenarios**:
 
-1. **Given** orders have been processed across stations, **When** manager opens Analytics, **Then** they see per-station throughput and average item prep time
-2. **Given** a station has items in "recibido" for >10 minutes, **When** viewing analytics, **Then** a bottleneck alert is shown
+1. **Given** orders have been processed, **When** manager opens Analytics, **Then** they see per-station throughput (items/hour) and average prep times
+2. **Given** a station is behind, **When** viewing analytics, **Then** a bottleneck alert highlights the station
 
 ---
 
 ### Edge Cases
 
-- What happens when an order item has **no station** assigned? Defaults to "Kitchen" and shows a config tag missing indicator
-- What happens when all stations mark "listo" but the overall order still needs packing? The order stays in "empaquetando" with all stations green
-- What happens if a station is renamed/added (e.g., "Grill", "Sushi", "Dessert")? The system uses the `menu_items.station` text value — adding a new station is just entering a new name in menu management
-- How does the system handle rush hour where items pile up? The station view shows items sorted by oldest-first, with a configurable max visible count per station
+- **Item with no station assigned** → defaults to `'kitchen'` with a subtle "uncategorized" indicator
+- **All stations "listo" but order not yet paid** → table shows `ready_pickup` (light red) until payment, then becomes `delivered` (transparent)
+- **Customer request while items are still cooking** → red overrides blue — request priority is absolute. Floor plan shows red with a small badge showing "request" overlay
+- **New station value created** (e.g., "grill", "sushi") → no code change needed; it reads from `menu_items.station`. The station view tab auto-generates from distinct station values found in active orders
+- **Table with no active order but occupied** → renders `occupied_idle` (gray)
+- **Multiple requests at same table** → status is still `customer_request` (red) — detail view shows a list of requests
 
 ---
 
@@ -116,67 +230,28 @@ The existing Manager Analytics placeholder is replaced with real-time station th
 
 ### Functional Requirements
 
-- **FR-001**: System MUST filter order items by `menu_items.station` for each station view (Kitchen, Bar, FOH)
-- **FR-002**: Each station MUST have its own independent status progression (recibido → preparando → listo) tracked via `orders.kitchen_status`, `orders.bar_status`, `orders.foh_request_status`
-- **FR-003**: Station status updates MUST propagate via real-time subscriptions to all open views
-- **FR-004**: The kitchen/bar ticket view MUST color-code items by their current station status:
-  - `recibido` → red/amber (needs attention)
-  - `preparando` → blue/cyan (in progress)
-  - `listo` → green (completed)
-- **FR-005**: The FOH board MUST highlight customer requests/notes with a distinct visual treatment (badge, accent color)
-- **FR-006**: Each order item MUST show an elapsed time counter from when it entered `recibido`
-- **FR-007**: The ticket flow timeline MUST display: received timestamp → per-station entry → per-station completion → overall completion
-- **FR-008**: Items with no `station` value MUST default to "Kitchen" and display a subtle indicator
-- **FR-009**: The existing KitchenView in App.tsx (accessed via `?mode=admin`) MUST be replaced with the station-aware view
-- **FR-010**: The manager Operations module "catalog" tab MUST allow editing the `station` field on menu items
+- **FR-001**: The floor plan table color MUST reflect the **real-time aggregated table status** derived from order data, not demo cycling
+- **FR-002**: Table status MUST be computed from the per-station completion state of all items at that table using the urgency/priority ranking in `statusPriority.ts`
+- **FR-003**: `customer_request` MUST be the highest-priority status and override all other table colors
+- **FR-004**: Station views (Kitchen, Bar) MUST filter items by `menu_items.station` value and show only relevant items
+- **FR-005**: Each station MUST track independent item status: `recibido → preparando → listo`
+- **FR-006**: Station status updates MUST publish to the `TableStatusSyncService` which triggers floor plan re-render
+
+- **FR-008**: The FOH board MUST display customer requests with the ability to mark them resolved
+- **FR-009**: The Manager Analytics placeholder MUST be replaced with per-station throughput metrics
+- **FR-010**: The Manager Operations → Catalog tab MUST allow editing `station` on menu items
+- **FR-011**: The `orders.kitchen_status`, `bar_status`, `foh_request_status` columns MUST be written to when staff advances item status
+- **FR-012**: Items with no `station` value MUST default to `'kitchen'` and display a subtle indicator
+- **FR-013**: The existing `KitchenView` (`?mode=admin`) MUST remain as-is — station views are separate screens accessed via navigation, not a replacement
 
 ### Key Entities
 
-- **MenuItem**: Already has `station: text` column — determines which station processes this item
-- **OrderItem**: Inherits `MenuItem` properties and includes `quantity`, `weightInGrams`, `selectedOption` — at display time, its station is derived from the underlying MenuItem
-- **Order**: Already has `kitchen_status`, `bar_status`, `foh_request_status` (USER-DEFINED types) and `status_timestamps` (JSONB) — these track per-station lifecycle
-- **Station**: A logical grouping — not a separate table. Defined by the text value of `menu_items.station`. Common values: 'kitchen', 'bar', 'foh'. Extensible by entering new values in menu management
-- **TicketFlowItem**: A display composite — pairs an `OrderItem` with its station status, elapsed time, and timeline stages. Computed at render time from order + menu data
-
----
-
-## Color Coding System
-
-| Station | Status | Color Token | Hex | Visual |
-|---------|--------|-------------|-----|--------|
-| Kitchen | recibido | `kitchen-recibido` | `#ef4444` | Red bg, white text, pulsing border |
-| Kitchen | preparando | `kitchen-preparando` | `#3b82f6` | Blue bg, white text, spinning icon |
-| Kitchen | listo | `kitchen-listo` | `#22c55e` | Green bg, white text, checkmark |
-| Bar | recibido | `bar-recibido` | `#f97316` | Orange bg, white text |
-| Bar | preparando | `bar-preparando` | `#8b5cf6` | Purple bg, white text |
-| Bar | listo | `bar-listo` | `#22c55e` | Green bg, white text |
-| FOH | pending | `foh-pending` | `#eab308` | Yellow bg, bell icon |
-| FOH | resolved | `foh-resolved` | `#22c55e` | Green bg, checkmark |
-
-### Status Progression Rules
-
-- Each station progresses independently via: `recibido → preparando → listo`
-- A station cannot skip states (no recibido → listo directly)
-- An order's overall `status` is computed as the aggregate of all stations:
-  - All stations "listo" + payment complete → "entregado"
-  - Any station "recibido" → overall stays "recibido"
-- FOH uses `pending → resolved` instead of the 3-state progression
-
-### Ticket Flow Visualization
-
-Each item card in a station view shows:
-```
-┌─────────────────────────────────────┐
-│ 🌮 Taco al Pastor          ⏱ 4:32   │
-│ Ticket #A7 · Mesa 5                 │
-│ ──────────────────────────           │
-│ 📥 Recibido    2:30 PM              │
-│ 🔵 Preparando  now     ⏳ 4:32      │
-│ ⬜ Listo       —                     │
-│ ──────────────────────────           │
-│ [Preparando] [Listo]                │
-└─────────────────────────────────────┘
-```
+- **Table** (floor plan object): Has a visual `fill color` computed from real-time order data via `TableVisualState.render.background`
+- **TableStatus** (status system): 12 enum values with urgency ranking, resolved via `resolveTableStatuses()` which picks primary + secondary based on priority
+- **MenuItem.station**: Text column — 'kitchen', 'bar', or any custom value. Dictates which station view processes the item
+- **OrderItem.station**: Snapshot of the menu item's station at order time (to preserve routing even if menu changes)
+- **Order**: Tracks per-station completion via `kitchen_status`, `bar_status`, `foh_request_status` and timestamps via `status_timestamps` JSONB
+- **TableStatusSyncService**: Singleton that bridges order events → floor plan color updates (already structured as a pub/sub in Phase C)
 
 ---
 
@@ -184,16 +259,17 @@ Each item card in a station view shows:
 
 ### Measurable Outcomes
 
-- **SC-001**: After a new order is placed, Kitchen-station items appear on the Cocina view within 3 seconds (real-time sync)
-- **SC-002**: Bar-station items never appear on the Kitchen view and vice versa (zero cross-contamination)
-- **SC-003**: Each station status update takes 1 tap and reflects within 1.5 seconds on all open views
-- **SC-004**: The FOH board shows customer requests with zero manual data entry (derived automatically from order notes/items)
-- **SC-005**: Ticket timeline renders for any order within 2 seconds of opening detail view
+- **SC-001**: After any order event (new order, item status change, request), the affected floor plan table updates color within 3 seconds
+- **SC-002**: `customer_request` (red) is always the dominant color regardless of other statuses at the same table
+- **SC-003**: Station views (Cocina, Barra) have zero cross-contamination — kitchen items never appear in bar view and vice versa
+- **SC-004**: After placing an order with items across 3 stations, all 3 station views update independently within 5 seconds
+- **SC-005**: A manager can see per-station throughput (items/hour) for the last shift in the Analytics tab
 
 ## Assumptions
 
-- Station values are managed through the menu catalog CRUD (manager can set `station` per item)
-- Real-time subscriptions use the existing InsForge SDK's `realtime` channel mechanism (already wired in `orders-repo.ts`)
-- The floor plan editor's table color coding (already built in Phase C) is **separate** from this order-item station color coding — they serve different purposes (table occupancy vs item production status)
-- Station status updates are performed by staff via taps in the station view, not automatically
-- The existing `orders.status_timestamps` JSONB stores all timestamps and will be extended with station-specific entries like `{ kitchen_recibido: 1, kitchen_preparando: 2, ... }`
+- The floor plan's demo status cycling (currently in `ManagerHubPage.tsx`) is replaced with a real `TableStatusSyncService` subscription that reads from the orders table
+- The existing `resolveTableVisualState()` and `resolveTableStatuses()` functions remain as-is — they already handle the correct logic. Only the **input data** changes from demo to real
+- Real-time updates use the existing InsForge realtime channel (already wired in `orders-repo.ts`)
+- Station views use the existing `subscribeToOrders` pattern, just filtered by item.station
+- The `OrderItem` type needs a `station` field added (snapshot from MenuItem at order time)
+- FOH requests are tracked via the existing `customer_request` status on the table/dining_session, not a new entity

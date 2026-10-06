@@ -4,6 +4,7 @@ import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tab
 import { useUrlMode } from './src/hooks/useUrlMode';
 import { useVisitorTracking } from './src/hooks/useVisitorTracking';
 import { calculateDeliveryFee, haversineKm } from './src/core/pricing';
+import { verifyPin } from './src/features/locks/verifyPin';
 import { resolveUiSettings } from './src/core/uiSettings';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import { sendTelegramNotification } from './lib/telegram';
@@ -56,6 +57,18 @@ const App: React.FC = () => {
   const urlMode = useUrlMode();
 
   const ui = resolveUiSettings(settings);
+
+  // PIN checks happen on the server (PocketBase route /api/star/verify-pin).
+  // The browser never receives the PIN or its hash, and the server rate-limits
+  // attempts. See src/features/locks/verifyPin.ts.
+  const verifyAdminPin = useCallback(
+    (pin: string) => verifyPin(restaurantId ?? undefined, 'admin', pin),
+    [restaurantId],
+  );
+  const verifyKitchenPin = useCallback(
+    (pin: string) => verifyPin(restaurantId ?? undefined, 'kitchen', pin),
+    [restaurantId],
+  );
 
   // Determine app mode: from restaurant settings, fallback to 'to-go'
   const appMode: AppMode = settings?.mode === 'dine-in' || settings?.mode === 'both' ? 'dine-in' : 'to-go';
@@ -717,7 +730,7 @@ const App: React.FC = () => {
                 primaryColor={ui.primaryColor}
               />
             ) : (
-              <KitchenLock onUnlock={() => setKitchenUnlocked(true)} expectedPin={ui.kitchenPin} title={ui.uiText.kitchenLockTitle} accentColor={ui.primaryColor} />
+              <KitchenLock onUnlock={() => setKitchenUnlocked(true)} verify={verifyKitchenPin} title={ui.uiText.kitchenLockTitle} accentColor={ui.primaryColor} />
             )
           ) : viewMode === 'dashboard' ? (
             dashboardUnlocked ? (
@@ -725,7 +738,7 @@ const App: React.FC = () => {
             ) : (
               <DataLock
                 onUnlock={() => setDashboardUnlocked(true)}
-                expectedPin={ui.adminPin}
+                verify={verifyAdminPin}
                 title={ui.uiText.dataLockTitle}
                 accentColor={ui.primaryColor}
               />
@@ -745,7 +758,7 @@ const App: React.FC = () => {
             ) : (
               <DataLock
                 onUnlock={() => { setAuthenticated(true); setAnalyticsRefreshTrigger(prev => prev + 1); }}
-                expectedPin={ui.adminPin}
+                verify={verifyAdminPin}
                 title={ui.uiText.dataLockTitle}
                 accentColor={ui.primaryColor}
               />

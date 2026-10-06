@@ -12,8 +12,6 @@ export interface ResolvedUiSettings {
   heroTitle: string;
   heroSubtitle: string;
   pickupLocationText: string;
-  adminPin: string;
-  kitchenPin: string;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -81,8 +79,6 @@ export const resolveUiSettings = (
   heroTitle: settings?.heroTitle || 'Bienvenido',
   heroSubtitle: settings?.heroSubtitle || '',
   pickupLocationText: settings?.pickupLocationText || 'Recoger en Sucursal',
-  adminPin: settings?.adminPin || '0000',
-  kitchenPin: settings?.kitchenPin || '0000',
   primaryColor: settings?.primaryColor || '#f59e0b',
   secondaryColor: settings?.secondaryColor || '#ea580c',
   accentColor: settings?.accentColor || '#111827',
