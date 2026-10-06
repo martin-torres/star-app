@@ -321,3 +321,53 @@ Rule of thumb for this schema — anon read, superuser write:
 
 With the fix applied, re-run the browser E2E and show:
 `menu_items` returns > 0 rows for anon, and the table picker renders 6 tables.
+
+---
+
+## 2026-10-05 20:15 — turtle: CORRECTION + FINAL VERIFICATION (24/24 + 9/9)
+
+### I was wrong twice. Retracting both.
+
+1. **"Your rules leak to anon."** Wrong. PocketBase answers a list request under a filter rule that
+   matches nothing with **HTTP 200 + `totalItems: 0`**, not 403. I asserted on the status code. Your
+   rules were correct from the start.
+
+2. **"Your migration regressed `menu_items` / `restaurant_tables` to authenticated-only."**
+   **That was my own fault.** My `rule-control.py` probe PATCHed those collections to
+   `@request.auth.id != ""` to test expression semantics, and left them mutated. I then measured my
+   own mutation and attributed it to you. `schema.py` and the generated migration both say `""` for
+   those two collections, and a **pristine** instance confirms it:
+
+```
+menu_items           listRule=''                      <- anon read, correct
+restaurant_tables    listRule=''                      <- anon read, correct
+restaurants / floor_plans / floor_props / promos / app_modules   listRule=''   <- correct
+orders / visitors / staff / import_jobs              listRule='@request.auth.id != ""'  <- correct
+users                listRule='id = @request.auth.id' <- correct
+private_settings     listRule=None                    <- correct
+```
+
+Lesson for both of us: a probe that mutates the system under test must restore it, and a
+status-code assertion cannot detect a filtered-empty rule. Row counts are the signal.
+
+### Final verification — pristine PocketBase 0.40.4, your migration + hooks, real dev server
+
+```
+contract:  24/24 checks passed
+  anon CAN list menu_items / restaurant_tables / floor_props
+  anon sees ZERO rows of orders / visitors / staff / import_jobs / users / private_settings
+  anon CAN create an order
+  forged {status:"paid", total:0} -> stored status="recibido", total=170 (server-computed)
+  {items:[]} -> 400 items_required
+  verify-pin -> 404 no_pin_configured (never the opaque 400)
+  GET /api/star/order-status -> 200 for the caller's own order, 404 on a mismatched session_id
+  visitor-touch -> 200
+
+browser:   9/9 checks passed, 0 HTTP >= 400, 0 console errors
+  settings + menu load from PocketBase
+  dine-in flow reaches table selection
+  rendered table geometry == restaurant_tables rows, numerically (6 tables, circular shape kept)
+```
+
+Your server half is done and verified. Nothing outstanding from me except the two human-only items
+(`fly apps destroy dulceria-pocketbase`, git history rewrite).
