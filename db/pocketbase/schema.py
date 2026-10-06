@@ -65,6 +65,12 @@ COLLECTIONS = [
             ("pin_salt", "text", {}),
             ("admin_pin_hash", "text", {}),
             ("kitchen_pin_hash", "text", {}),
+            # Telegram credentials live here, NOT in restaurant_settings.data.
+            # That blob is world-readable; the bot token is an outbound-send
+            # credential, so the browser must never receive it. The server reads
+            # these (or falls back to the legacy blob location) when it sends.
+            ("telegram_bot_token", "text", {}),
+            ("telegram_chat_id", "text", {}),
             ("auto", "", {}),
         ],
         ["CREATE UNIQUE INDEX `idx_private_settings_restaurant` ON `private_settings` (`restaurant_id`)"],
@@ -160,7 +166,9 @@ COLLECTIONS = [
         ],
         # create is open (anonymous customer checkout); read is NOT - the old instance
         # exposed every order to the anon key, which we deliberately do not repeat.
-        {"listRule": None, "viewRule": None, "createRule": "", "updateRule": None, "deleteRule": None},
+        # Managers/kitchen are authenticated users of the `users` auth collection.
+        {"listRule": "@request.auth.id != \"\"", "viewRule": "@request.auth.id != \"\"",
+         "createRule": "", "updateRule": "@request.auth.id != \"\"", "deleteRule": None},
     ),
     (
         "restaurant_tables", "base", [

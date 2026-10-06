@@ -3,7 +3,7 @@ import type { FloorPropType, TableType } from "../floor-editor/domain/layoutType
 import { initialEditorStore, type FloorEditorStore } from "../floor-editor/state/editorStore";
 import { ManagerNavRail } from "./ManagerNavRail";
 import { ModuleHost } from "./ModuleHost";
-import { loadFloorPlanStore, saveFloorPlanStore } from "./floorPlanPersistence";
+import { loadFloorPlanStore, saveFloorPlanStore, loadFloorPlanFromDb, saveFloorPlanToDb } from "./floorPlanPersistence";
 import type { ManagerModuleRoute } from "./managerTypes";
 import { switchManagerModule } from "./moduleSwitchController";
 import type { TableStatus, TableStatusInput } from "../floorplan/domain/statusTypes";
@@ -12,7 +12,7 @@ interface ManagerHubPageProps {
   restaurantId?: string;
 }
 
-export function ManagerHubPage({ restaurantId: _restaurantId }: ManagerHubPageProps) {
+export function ManagerHubPage({ restaurantId }: ManagerHubPageProps) {
   const [route, setRoute] = useState<ManagerModuleRoute>("floor-plan");
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [floorStore, setFloorStore] = useState<FloorEditorStore>(() => loadFloorPlanStore() ?? initialEditorStore);
@@ -20,21 +20,50 @@ export function ManagerHubPage({ restaurantId: _restaurantId }: ManagerHubPagePr
   const [addPropType, setAddPropType] = useState<FloorPropType>("kitchen_area");
   const [rightCollapsed, setRightCollapsed] = useState(false);
 
+  // The database is the source of truth: load the saved plan so the manager
+  // edits what the customer will see (not a stale localStorage draft).
+  useEffect(() => {
+    if (!restaurantId) return;
+    let cancelled = false;
+    loadFloorPlanFromDb(restaurantId)
+      .then((saved) => {
+        if (!cancelled && saved) setFloorStore(saved);
+      })
+      .catch((err) => {
+        console.error("Error loading floor plan from server:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId]);
+
   useEffect(() => {
     if (floorStore.selectedObjectId && rightCollapsed) setRightCollapsed(false);
   }, [floorStore.selectedObjectId, rightCollapsed]);
 
+  // Draft to localStorage immediately; persist to the database after a pause so
+  // dragging a table does not fire a write per mouse-move.
   useEffect(() => {
     saveFloorPlanStore(floorStore);
-  }, [floorStore]);
+    if (!restaurantId) return;
+    const timer = setTimeout(() => {
+      saveFloorPlanToDb(restaurantId, floorStore).catch((err) => {
+        console.error("Error saving floor plan to server:", err);
+      });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [floorStore, restaurantId]);
 
   const autosave = useMemo(
     () => ({
       async saveFloorPlan(nextStore: FloorEditorStore) {
         saveFloorPlanStore(nextStore);
+        if (restaurantId) {
+          await saveFloorPlanToDb(restaurantId, nextStore);
+        }
       },
     }),
-    [],
+    [restaurantId],
   );
 
   // Demo status map so tables show visual colors in the editor.
@@ -99,7 +128,7 @@ export function ManagerHubPage({ restaurantId: _restaurantId }: ManagerHubPagePr
           onToggleLeft={() => {}}
           onToggleRight={() => setRightCollapsed((prev) => !prev)}
           tableStatusMap={tableStatusMap}
-          restaurantId={_restaurantId}
+          restaurantId={restaurantId}
         />
       </div>
     </main>

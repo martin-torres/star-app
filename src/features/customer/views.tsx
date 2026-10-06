@@ -17,8 +17,7 @@ import {
   QrCode,
   Smartphone,
 } from 'lucide-react';
-import type { OrderStatus } from '../../core/types';
-import type { MenuItem, OrderItem, Order, CustomerInfo, DeliveryType, PaymentMethod } from '../../core/types';
+import type { MenuItem, OrderItem, Order } from '../../core/types';
 import type { ResolvedUiSettings } from '../../core/uiSettings';
 
 type CustomerScreen = 'landing' | 'menu' | 'cart' | 'checkout' | 'tracking';
@@ -422,9 +421,7 @@ export const CheckoutView = ({
   }, [cart, isUnlockOrder, dbCombo]);
   
   const recommended = (menuItems ?? []).filter(
-    item =>
-      item.category !== 'pollo' &&
-      !cart.some((cartItem: any) => cartItem.id === item.id)
+    (item: MenuItem) => !cart.some((cartItem: any) => cartItem.id === item.id)
   );
 
   const finalTotal = Math.max(0, cartTotal + (deliveryType === 'domicilio' ? deliveryFee : 0) - unlockDiscount);
@@ -498,7 +495,7 @@ export const CheckoutView = ({
         <section className="animate-in fade-in slide-in-from-left-4 duration-500">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1 italic">{t('upsellTitle', '¿Te falta algo para acompañar?')}</h3>
           <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-6 px-6">
-            {recommended.map(item => (
+            {recommended.map((item: MenuItem) => (
               <div 
                 key={item.id} 
                 className="flex-shrink-0 w-32 bg-white border border-gray-100 rounded-2xl p-2 shadow-sm transition-all flex flex-col justify-between cursor-pointer hover:shadow-lg"
@@ -799,7 +796,6 @@ export const TrackingView = ({
 }) => {
   const { t } = useTranslations();
   if (!currentOrder) return null;
-  const statusSteps: OrderStatus[] = ['recibido', 'preparando', 'listo', 'en_camino', 'entregado'];
 
   const getStatusText = () => {
     switch (currentOrder.status) {

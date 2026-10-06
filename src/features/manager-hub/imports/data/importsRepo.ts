@@ -1,7 +1,7 @@
 /**
  * Imports adapter backed by the import_jobs table.
  */
-import { insforge } from "../../../../data/insforge/client";
+import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
 export type ImportKind = "csv" | "image" | "doc";
 export type ImportStatus = "uploaded" | "parsed" | "previewed" | "applied" | "failed";

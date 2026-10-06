@@ -6,7 +6,7 @@ import {
   type FloorPlanTable,
 } from "../floorplan/model/floorPlan";
 import { chairNodesFor } from "../floorplan/ui/primitives";
-import { tablesApi } from "../../../lib/pocketbase";
+import { floorPlanApi, tablesApi } from "../../../lib/pocketbase";
 
 /**
  * Map DB table rows to the canonical floor-plan model.
@@ -47,11 +47,26 @@ export function planTablesFromRows(rows: RestaurantTable[], restaurantId: string
 }
 
 /**
- * Load the floor plan a customer should see. Uses the manager-saved plan when
- * one exists (identical formation to the editor), and falls back to the table
- * rows so the picker never renders empty.
+ * Load the floor plan a customer should see.
+ *
+ * Order of preference:
+ *   1. the manager-saved plan from the database (`floor_plans` +
+ *      `restaurant_tables` + `floor_props`) — this is the whole point of spec 006:
+ *      the customer sees the SAME formation the manager drew;
+ *   2. the table rows alone, if no plan has been saved yet;
+ *   3. an empty plan, so the picker renders its "no tables" state instead of
+ *      throwing.
  */
 export async function loadDineInPlan(restaurantId: string): Promise<FloorPlan> {
+  try {
+    const saved = await floorPlanApi.getPlan(restaurantId);
+    if (saved && saved.tables.length > 0) {
+      return saved;
+    }
+  } catch (error) {
+    console.warn("[floorplan] saved plan unavailable, falling back to table rows", error);
+  }
+
   const tables = await tablesApi.getAll(restaurantId);
   return {
     ...emptyFloorPlan(restaurantId),

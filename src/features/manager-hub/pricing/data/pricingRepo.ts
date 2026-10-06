@@ -4,7 +4,7 @@
  * The 2y542jyv schema stores price, currency, and effective_from directly
  * on menu_items, so this repo is a thin wrapper around menu queries.
  */
-import { insforge } from "../../../../data/insforge/client";
+import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
 export interface PriceEntry {
   itemId: string;

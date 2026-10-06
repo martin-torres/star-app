@@ -7,7 +7,7 @@
  *   active, is_available, price, currency, effective_from
  *   created_at, updated_at
  */
-import { insforge } from "../../../../data/insforge/client";
+import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
 export interface MenuItem {
   itemId: string;

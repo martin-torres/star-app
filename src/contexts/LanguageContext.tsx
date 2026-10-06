@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { resolveLanguage, setLanguage as setLangStorage, type SupportedLanguage } from '../utils/languageResolver';
 
 interface LanguageContextType {

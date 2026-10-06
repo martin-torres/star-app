@@ -11,7 +11,7 @@
  *   FloorPlan.targetWeekday → promos.target_weekday (integer 0-6)
  *   FloorPlan.active     → promos.active
  */
-import { insforge } from "../../../../data/insforge/client";
+import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
 export type PromotionType = "promotion" | "event";
 export type PromotionOfferType = "discount" | "2x1" | "free" | "custom";
