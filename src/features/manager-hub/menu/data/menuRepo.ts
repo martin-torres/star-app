@@ -1,11 +1,10 @@
 /**
- * FloorPlan-style MenuRepository backed by the InsForge menu_items table.
+ * Manager-hub MenuRepository backed by the PocketBase `menu_items` collection.
  *
- * Schema: menu_items (2y542jyv)
- *   slug ← FloorPlan itemId (human-readable key)
- *   name, category, description, image_url
- *   active, is_available, price, currency, effective_from
- *   created_at, updated_at
+ * The canonical key is the record `id`; `active` is modelled by the real
+ * `is_available` column. Columns that do NOT exist in the schema (`slug`,
+ * `currency`, `effective_from`) are deliberately never written: PocketBase
+ * rejects the whole request with a 400 if any field is unknown.
  */
 import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
@@ -34,12 +33,14 @@ export function validateMenuItem(item: MenuItem): void {
 
 function toMenuItem(row: any): MenuItem {
   return {
-    itemId: row.slug ?? row.id,
+    // The database key is the record id; there is no `slug` column.
+    itemId: row.id,
     name: row.name ?? "",
     category: row.category ?? "General",
     description: row.description ?? undefined,
     imageUrl: row.image_url ?? undefined,
-    active: row.active ?? true,
+    // `active` is modelled by the real `is_available` column.
+    active: row.is_available ?? true,
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
 }
@@ -50,19 +51,8 @@ function toDbPatch(patch: Partial<MenuItem>): Record<string, unknown> {
   if (patch.category !== undefined) db.category = patch.category;
   if (patch.description !== undefined) db.description = patch.description;
   if (patch.imageUrl !== undefined) db.image_url = patch.imageUrl;
-  if (patch.active !== undefined) db.active = patch.active;
+  if (patch.active !== undefined) db.is_available = patch.active;
   return db;
-}
-
-function createSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "item";
 }
 
 export const menuRepo: MenuRepo = {
@@ -78,19 +68,16 @@ export const menuRepo: MenuRepo = {
   },
 
   async create(input: Omit<MenuItem, "updatedAt">, restaurantId: string): Promise<MenuItem> {
-    const slug = createSlug(input.name);
     const { data, error } = await insforge.database
       .from("menu_items")
       .insert([
         {
           restaurant_id: restaurantId,
-          slug,
           name: input.name,
           category: input.category,
           description: input.description ?? null,
           image_url: input.imageUrl ?? null,
-          active: input.active ?? true,
-          is_available: true,
+          is_available: input.active ?? true,
         },
       ])
       .select()
@@ -103,7 +90,7 @@ export const menuRepo: MenuRepo = {
     const { data, error } = await insforge.database
       .from("menu_items")
       .update(toDbPatch(patch))
-      .eq("slug", itemId)
+      .eq("id", itemId)
       .select()
       .single();
     if (error) throw error;
@@ -114,7 +101,7 @@ export const menuRepo: MenuRepo = {
     const { error } = await insforge.database
       .from("menu_items")
       .delete()
-      .eq("slug", itemId)
+      .eq("id", itemId)
       .eq("restaurant_id", restaurantId);
     if (error) throw error;
   },

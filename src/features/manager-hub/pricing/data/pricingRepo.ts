@@ -1,8 +1,9 @@
 /**
- * Pricing adapter backed by the menu_items table.
+ * Pricing adapter backed by the PocketBase `menu_items` collection.
  *
- * The 2y542jyv schema stores price, currency, and effective_from directly
- * on menu_items, so this repo is a thin wrapper around menu queries.
+ * `menu_items` has no `slug`, `currency` or `effective_from` columns, so this
+ * repo only ever writes the real `price` field and keys on the record `id`.
+ * `currency` is carried for display and comes from the restaurant, not the item.
  */
 import { insforge } from "../../../../data/pocketbase/legacy-insforge";
 
@@ -28,11 +29,12 @@ export function validatePrice(value: number): void {
 
 function toPriceEntry(row: any): PriceEntry {
   return {
-    itemId: row.slug ?? row.id,
-    label: row.name ?? row.slug ?? "",
+    itemId: row.id,
+    label: row.name ?? "",
     price: row.price ? Number(row.price) : 0,
-    currency: row.currency ?? "MXN",
-    effectiveFrom: row.effective_from ?? undefined,
+    // Not an item column: the restaurant owns the currency. Display default only.
+    currency: "MXN",
+    effectiveFrom: undefined,
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
 }
@@ -41,7 +43,7 @@ export const pricingRepo: PricingRepo = {
   async list(restaurantId: string): Promise<PriceEntry[]> {
     const { data, error } = await insforge.database
       .from("menu_items")
-      .select("slug, name, price, currency, effective_from, updated_at")
+      .select("id, name, price, updated_at")
       .eq("restaurant_id", restaurantId)
       .not("price", "is", null)
       .order("name");
@@ -51,16 +53,10 @@ export const pricingRepo: PricingRepo = {
 
   async upsert(entry: Omit<PriceEntry, "updatedAt">, restaurantId: string): Promise<PriceEntry> {
     validatePrice(entry.price);
-    const patch: Record<string, unknown> = {
-      price: entry.price,
-      currency: entry.currency,
-    };
-    if (entry.effectiveFrom) patch.effective_from = entry.effectiveFrom;
-
     const { data, error } = await insforge.database
       .from("menu_items")
-      .update(patch)
-      .eq("slug", entry.itemId)
+      .update({ price: entry.price })
+      .eq("id", entry.itemId)
       .eq("restaurant_id", restaurantId)
       .select()
       .single();
@@ -71,8 +67,8 @@ export const pricingRepo: PricingRepo = {
   async remove(itemId: string, restaurantId: string): Promise<void> {
     const { error } = await insforge.database
       .from("menu_items")
-      .update({ price: null, currency: null })
-      .eq("slug", itemId)
+      .update({ price: 0 })
+      .eq("id", itemId)
       .eq("restaurant_id", restaurantId);
     if (error) throw error;
   },
