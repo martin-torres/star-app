@@ -14,11 +14,12 @@ import {
   CheckCircle2,
   Clock,
   ChefHat,
-  QrCode,
   Smartphone,
 } from 'lucide-react';
-import type { OrderStatus } from '../../core/types';
+import type { MenuItem, OrderItem, Order } from '../../core/types';
 import type { ResolvedUiSettings } from '../../core/uiSettings';
+
+type CustomerScreen = 'landing' | 'menu' | 'cart' | 'checkout' | 'tracking';
 import { TabBar } from './components/TabBar';
 import { LanguageSelector } from './components/LanguageSelector';
 import { WeightOrderModal } from './components/WeightOrderModal';
@@ -156,7 +157,18 @@ export const MenuView = ({
   settings,
   primaryColor = '#f59e0b',
   secondaryColor = '#ea580c',
-}: any) => {
+  backScreen = 'landing',
+}: {
+  addToCart: (item: MenuItem) => void;
+  setCart: React.Dispatch<React.SetStateAction<OrderItem[]>>;
+  setActiveScreen: (screen: CustomerScreen) => void;
+  menuItems: MenuItem[];
+  settings: ResolvedUiSettings;
+  primaryColor?: string;
+  secondaryColor?: string;
+  /** Where the back arrow sends the customer (dine-in uses a synthetic landing). */
+  backScreen?: CustomerScreen;
+}) => {
   const { t, getItemDescription } = useTranslations();
   const { isUnlocked } = useUnlockState();
   const categories = settings?.categories || [];
@@ -212,7 +224,7 @@ export const MenuView = ({
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center justify-between relative mb-6">
-        <button onClick={() => setActiveScreen('landing')} className="absolute left-0 p-2 -ml-2 hover:bg-gray-100 rounded-full">
+        <button onClick={() => setActiveScreen(backScreen)} className="absolute left-0 p-2 -ml-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="flex-1 text-center text-2xl font-bold italic font-black uppercase">
@@ -411,9 +423,7 @@ export const CheckoutView = ({
   }, [cart, isUnlockOrder, dbCombo]);
   
   const recommended = (menuItems ?? []).filter(
-    item =>
-      item.category !== 'pollo' &&
-      !cart.some((cartItem: any) => cartItem.id === item.id)
+    (item: MenuItem) => !cart.some((cartItem: any) => cartItem.id === item.id)
   );
 
   const finalTotal = Math.max(0, cartTotal + (deliveryType === 'domicilio' ? deliveryFee : 0) - unlockDiscount);
@@ -487,7 +497,7 @@ export const CheckoutView = ({
         <section className="animate-in fade-in slide-in-from-left-4 duration-500">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 ml-1 italic">{t('upsellTitle', '¿Te falta algo para acompañar?')}</h3>
           <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar -mx-6 px-6">
-            {recommended.map(item => (
+            {recommended.map((item: MenuItem) => (
               <div 
                 key={item.id} 
                 className="flex-shrink-0 w-32 bg-white border border-gray-100 rounded-2xl p-2 shadow-sm transition-all flex flex-col justify-between cursor-pointer hover:shadow-lg"
@@ -603,30 +613,9 @@ export const CheckoutView = ({
             <CreditCard className="w-5 h-5" style={{ color: secondaryColor }} />
             {t('paymentTitle', settings?.uiText?.paymentTitle || 'Pago')}
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
             <button
-              onClick={() => setPaymentMethod('conekta')}
-              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'conekta' ? 'border-gray-400 bg-gray-100/60' : 'border-gray-100 bg-gray-50'}`}
-              style={paymentMethod === 'conekta' ? { borderColor: primaryColor, backgroundColor: `${primaryColor}20` } : undefined}
-            >
-              <CreditCard className="w-5 h-5 mb-1" />
-              <span className="text-[8px] font-bold uppercase">{t('cardPayment', 'Tarjeta')}</span>
-            </button>
-            <button
-              onClick={() => setPaymentMethod('mercadopago')}
-              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'mercadopago' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 bg-gray-50'}`}
-            >
-              <Smartphone className="w-5 h-5 mb-1" />
-              <span className="text-[8px] font-bold uppercase">Mercado Pago</span>
-            </button>
-            <button
-              onClick={() => setPaymentMethod('codi')}
-              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'codi' ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-100 bg-gray-50'}`}
-            >
-              <QrCode className="w-5 h-5 mb-1" />
-              <span className="text-[8px] font-bold uppercase">CoDi</span>
-            </button>
-            <button
+              type="button"
               onClick={() => setPaymentMethod('efectivo')}
               className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'efectivo' ? 'border-amber-600 bg-amber-50 text-amber-700' : 'border-gray-100 bg-gray-50'}`}
             >
@@ -634,6 +623,24 @@ export const CheckoutView = ({
               <span className="text-[8px] font-bold uppercase">{t('cashPayment', 'Efectivo')}</span>
             </button>
             <button
+              type="button"
+              onClick={() => setPaymentMethod('tarjeta')}
+              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'tarjeta' ? 'border-gray-400 bg-gray-100/60' : 'border-gray-100 bg-gray-50'}`}
+              style={paymentMethod === 'tarjeta' ? { borderColor: primaryColor, backgroundColor: `${primaryColor}20` } : undefined}
+            >
+              <CreditCard className="w-5 h-5 mb-1" />
+              <span className="text-[8px] font-bold uppercase">{t('cardPayment', 'Tarjeta')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod('telefono')}
+              className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'telefono' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 bg-gray-50'}`}
+            >
+              <Smartphone className="w-5 h-5 mb-1" />
+              <span className="text-[8px] font-bold uppercase">{t('phonePayment', 'Teléfono')}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setPaymentMethod('transferencia')}
               className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${paymentMethod === 'transferencia' ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-100 bg-gray-50'}`}
             >
@@ -642,22 +649,22 @@ export const CheckoutView = ({
             </button>
           </div>
 
-          {paymentMethod === 'codi' && (
+          {paymentMethod === 'tarjeta' && (
             <div className="mt-4 animate-in slide-in-from-top-2">
-              <div className="flex flex-col items-center p-6 bg-white rounded-2xl border-2 border-dashed border-green-300">
-                <QrCode className="w-16 h-16 text-green-600 mb-4" />
-                <p className="text-sm font-bold text-gray-700 mb-2">{t('codiInstructions', 'Escanea el código QR con tu app bancaria')}</p>
-                <p className="text-xs text-gray-500">{t('codiSubtext', 'Pago seguro con CoDi - Banco de México')}</p>
+              <div className="flex flex-col items-center p-6 bg-white rounded-2xl border-2 border-dashed border-gray-300">
+                <CreditCard className="w-12 h-12 text-gray-600 mb-3" style={{ color: primaryColor }} />
+                <p className="text-sm font-bold text-gray-700 mb-1">{t('cardInstructions', 'Paga con tarjeta de crédito o débito')}</p>
+                <p className="text-xs text-gray-500 text-center">{t('cardSubtext', 'El cobro se confirma al entregar el pedido')}</p>
               </div>
             </div>
           )}
 
-          {paymentMethod === 'mercadopago' && (
+          {paymentMethod === 'telefono' && (
             <div className="mt-4 animate-in slide-in-from-top-2">
               <div className="flex flex-col items-center p-6 bg-white rounded-2xl border-2 border-blue-200">
-                <Smartphone className="w-12 h-12 text-blue-500 mb-4" />
-                <p className="text-sm font-bold text-gray-700 mb-2">{t('mpInstructions', 'Serás redirigido a Mercado Pago')}</p>
-                <p className="text-xs text-gray-500">{t('mpSubtext', 'Tarjeta, OXXO o transferencia')}</p>
+                <Smartphone className="w-12 h-12 text-blue-500 mb-3" />
+                <p className="text-sm font-bold text-gray-700 mb-1">{t('phoneInstructions', 'Paga con la app de tu teléfono')}</p>
+                <p className="text-xs text-gray-500 text-center">{t('phoneSubtext', 'Mercado Pago, CoDi, Apple Pay, Google Pay u otra billetera')}</p>
               </div>
             </div>
           )}
@@ -779,11 +786,15 @@ export const TrackingView = ({
   primaryColor = '#f59e0b',
   currency = 'MXN',
   uiText,
-}: any) => {
+}: {
+  currentOrder: Order | null;
+  setActiveScreen: (screen: CustomerScreen) => void;
+  primaryColor?: string;
+  currency?: string;
+  uiText?: ResolvedUiSettings['uiText'];
+}) => {
   const { t } = useTranslations();
   if (!currentOrder) return null;
-  const statusSteps: OrderStatus[] = ['recibido', 'preparando', 'listo', 'en_camino', 'entregado'];
-  const currentIdx = statusSteps.indexOf(currentOrder.status);
 
   const getStatusText = () => {
     switch (currentOrder.status) {

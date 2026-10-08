@@ -1,36 +1,58 @@
 import type { MenuRepository } from '../contracts';
 import type { MenuCategory, MenuItem, PromoItem } from '../../core/types';
-import { insforge } from './client';
-import { toMenuItem, toPromoItem } from './mappers';
+import { pb } from './client';
+import { COLLECTIONS } from './collections';
+import { and, eq } from './query';
+import { menuItemToDb, toMenuItem, toPromoItem, type RawRecord } from './mappers';
 
 export class PocketBaseMenuRepository implements MenuRepository {
   async getAll(restaurantId?: string): Promise<MenuItem[]> {
-    let query = insforge.database.from('menu_items').select('*').order('category').order('name');
-    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((item: any) => toMenuItem(item));
+    const records = await pb.collection(COLLECTIONS.menuItems).getFullList<RawRecord>({
+      filter: and(restaurantId ? eq('restaurant_id', restaurantId) : ''),
+      sort: 'category,name',
+    });
+    return records.map(toMenuItem);
   }
 
   async getByCategory(category: MenuCategory, restaurantId?: string): Promise<MenuItem[]> {
-    let query = insforge.database.from('menu_items').select('*').eq('category', category).order('name');
-    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((item: any) => toMenuItem(item));
+    const records = await pb.collection(COLLECTIONS.menuItems).getFullList<RawRecord>({
+      filter: and(
+        eq('category', category),
+        restaurantId ? eq('restaurant_id', restaurantId) : '',
+      ),
+      sort: 'name',
+    });
+    return records.map(toMenuItem);
   }
 
   async getById(id: string): Promise<MenuItem> {
-    const { data, error } = await insforge.database.from('menu_items').select('*').eq('id', id).single();
-    if (error) throw error;
-    return toMenuItem(data as any);
+    const record = await pb.collection(COLLECTIONS.menuItems).getOne<RawRecord>(id);
+    return toMenuItem(record);
   }
 
   async getActivePromos(restaurantId?: string): Promise<PromoItem[]> {
-    let query = insforge.database.from('promos').select('*').eq('active', true).order('name');
-    if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map((item: any) => toPromoItem(item));
+    const records = await pb.collection(COLLECTIONS.promos).getFullList<RawRecord>({
+      filter: and('active = true', restaurantId ? eq('restaurant_id', restaurantId) : ''),
+      sort: 'name',
+    });
+    return records.map(toPromoItem);
+  }
+
+  async create(item: Omit<MenuItem, 'id'>): Promise<MenuItem> {
+    const record = await pb
+      .collection(COLLECTIONS.menuItems)
+      .create<RawRecord>(menuItemToDb(item));
+    return toMenuItem(record);
+  }
+
+  async update(id: string, data: Partial<MenuItem>): Promise<MenuItem> {
+    const record = await pb
+      .collection(COLLECTIONS.menuItems)
+      .update<RawRecord>(id, menuItemToDb(data));
+    return toMenuItem(record);
+  }
+
+  async remove(id: string): Promise<void> {
+    await pb.collection(COLLECTIONS.menuItems).delete(id);
   }
 }

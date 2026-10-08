@@ -1,4 +1,4 @@
-import { ItemOption } from '../../core/types';
+import type { ItemOption } from '../../../core/types';
 
 interface OptionSelectorProps {
   options: ItemOption[];

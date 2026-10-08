@@ -7,15 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "setup": "node scripts/setup-collections.js",
-    "seed:settings": "node scripts/seed-restaurant-settings.js",
-    "seed:menu": "node scripts/seed-menu-items.js"
+    "pb:deploy": "bash db/pocketbase/deploy.sh"
   },
   "dependencies": {
-    "@insforge/sdk": "^1.2.7",
     "dotenv": "^16.6.1",
     "form-data": "^4.0.5",
     "lucide-react": "^0.561.0",
+    "pocketbase": "^0.28.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },

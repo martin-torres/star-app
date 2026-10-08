@@ -1,5 +1,6 @@
 import React from 'react';
-import { CreditCard, Users, Receipt, Check, ArrowLeft } from 'lucide-react';
+import { CreditCard, Users, Receipt, Check, ArrowLeft, Banknote, Smartphone } from 'lucide-react';
+import type { PaymentMethod } from '../../core/types';
 
 interface BillItem {
   name: string;
@@ -14,6 +15,7 @@ interface Payment {
   amount: number;
   paidAt: number;
   items?: string[];
+  paymentMethod?: PaymentMethod;
 }
 
 interface BillData {
@@ -29,8 +31,18 @@ interface BillPaymentProps {
   bill: BillData;
   primaryColor?: string;
   secondaryColor?: string;
-  onPaymentComplete: (paidAmount: number, paidItems: string[]) => void;
+  onPaymentComplete: (
+    paidAmount: number,
+    paidItems: string[],
+    paymentMethod: PaymentMethod,
+  ) => void;
 }
+
+const PAY_OPTIONS: Array<{ id: PaymentMethod; label: string; hint: string; Icon: typeof CreditCard }> = [
+  { id: 'efectivo', label: 'Efectivo', hint: 'Paga en caja', Icon: Banknote },
+  { id: 'tarjeta', label: 'Tarjeta', hint: 'Crédito o débito', Icon: CreditCard },
+  { id: 'telefono', label: 'Teléfono', hint: 'App / billetera', Icon: Smartphone },
+];
 
 export const BillPayment: React.FC<BillPaymentProps> = ({
   bill,
@@ -42,8 +54,8 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
   const [tipPercentage, setTipPercentage] = React.useState(15);
   const [numberOfPeople, setNumberOfPeople] = React.useState(2);
   const [selectedItems, setSelectedItems] = React.useState<Set<number>>(new Set());
+  const [paymentMethod, setPaymentMethod] = React.useState<PaymentMethod>('efectivo');
 
-  // Create item instances (one per quantity)
   const itemInstances: Array<{ itemIndex: number; instanceIndex: number; name: string; price: number }> = [];
   bill.items.forEach((item, idx) => {
     for (let i = 0; i < item.quantity; i++) {
@@ -92,11 +104,16 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
   };
 
   const handlePay = () => {
+    if (!splitMode) return;
     const paidKeys = splitMode === 'items'
       ? Array.from(selectedItems).map(i => String(i))
       : itemInstances.map((_, i) => String(i));
-    onPaymentComplete(yourAmount, paidKeys);
+    onPaymentComplete(yourAmount, paidKeys, paymentMethod);
   };
+
+  const canPay =
+    splitMode !== null &&
+    !(splitMode === 'items' && selectedItems.size === 0);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-36">
@@ -108,7 +125,6 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
 
         {splitMode === null ? (
           <>
-            {/* Bill Summary */}
             <div className="bg-white rounded-3xl shadow-sm border p-6">
               <div className="space-y-3">
                 {bill.items.map((item, index) => (
@@ -156,7 +172,6 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
               </div>
             </div>
 
-            {/* Tip Selector */}
             <div className="bg-white rounded-3xl shadow-sm border p-6">
               <label className="font-bold text-gray-900 mb-3 block">
                 Propina: {tipPercentage}%
@@ -165,6 +180,7 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
                 {[10, 15, 18, 20, 25, 30].map(pct => (
                   <button
                     key={pct}
+                    type="button"
                     onClick={() => setTipPercentage(pct)}
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${
                       tipPercentage === pct
@@ -179,16 +195,14 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
               </div>
             </div>
 
-            {/* Split Options */}
             <div className="bg-white rounded-3xl shadow-sm border p-6">
               <h3 className="font-bold text-gray-900 mb-4">Dividir Cuenta</h3>
               <div className="space-y-3">
                 <button
+                  type="button"
                   onClick={() => setSplitMode('full')}
                   className="w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all hover:border-blue-400"
                   style={{ borderColor: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                 >
                   <CreditCard className="w-5 h-5" style={{ color: primaryColor }} />
                   <div>
@@ -198,11 +212,10 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setSplitMode('even')}
                   className="w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all hover:border-blue-400"
                   style={{ borderColor: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                 >
                   <Users className="w-5 h-5" style={{ color: primaryColor }} />
                   <div>
@@ -212,11 +225,10 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setSplitMode('items')}
                   className="w-full p-4 rounded-2xl border-2 text-left flex items-center gap-3 transition-all hover:border-blue-400"
                   style={{ borderColor: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                 >
                   <Receipt className="w-5 h-5" style={{ color: primaryColor }} />
                   <div>
@@ -229,9 +241,9 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
           </>
         ) : (
           <>
-            {/* Split Mode UI */}
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setSplitMode(null)}
                 className="p-2 hover:bg-gray-100 rounded-full"
               >
@@ -253,6 +265,7 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
                   {[2, 3, 4, 5, 6, 7, 8].map(n => (
                     <button
                       key={n}
+                      type="button"
                       onClick={() => setNumberOfPeople(n)}
                       className={`w-12 h-12 rounded-xl font-bold transition-all ${
                         numberOfPeople === n
@@ -275,6 +288,7 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
                   {itemInstances.map((inst, idx) => (
                     <button
                       key={idx}
+                      type="button"
                       onClick={() => toggleItem(idx)}
                       className={`w-full p-3 rounded-xl border-2 transition-all text-left flex items-center justify-between ${
                         selectedItems.has(idx)
@@ -296,7 +310,31 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
               </div>
             )}
 
-            {/* Amount Breakdown */}
+            <div className="bg-white rounded-3xl shadow-sm border p-6">
+              <h3 className="font-bold text-gray-900 mb-3">Método de pago</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {PAY_OPTIONS.map(({ id, label, hint, Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setPaymentMethod(id)}
+                    className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
+                      paymentMethod === id ? 'shadow-sm' : 'border-gray-100 bg-gray-50'
+                    }`}
+                    style={
+                      paymentMethod === id
+                        ? { borderColor: primaryColor, backgroundColor: primaryColor + '12' }
+                        : undefined
+                    }
+                  >
+                    <Icon className="w-5 h-5 mb-1" style={{ color: primaryColor }} />
+                    <span className="text-[10px] font-bold uppercase">{label}</span>
+                    <span className="text-[9px] text-gray-500 text-center leading-tight mt-0.5">{hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-white rounded-3xl shadow-sm border p-6">
               <div className="space-y-2">
                 <div className="flex justify-between text-gray-600">
@@ -318,7 +356,6 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
               </div>
             </div>
 
-            {/* Your Amount */}
             <div
               className="rounded-3xl p-6 text-white shadow-xl"
               style={{ backgroundColor: primaryColor }}
@@ -329,17 +366,17 @@ export const BillPayment: React.FC<BillPaymentProps> = ({
           </>
         )}
 
-        {/* Fixed bottom Pay button */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-2xl">
           <div className="max-w-lg mx-auto">
             <button
+              type="button"
               onClick={handlePay}
-              disabled={splitMode === 'items' && selectedItems.size === 0}
+              disabled={!canPay}
               className="w-full text-white py-4 rounded-2xl font-bold text-lg transition-all hover:brightness-90 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ backgroundColor: primaryColor }}
             >
               <CreditCard className="w-5 h-5 inline mr-2" />
-              Pagar {formatMoney(yourAmount)}
+              {splitMode ? `Pagar ${formatMoney(yourAmount)}` : 'Elige cómo dividir'}
             </button>
           </div>
         </div>

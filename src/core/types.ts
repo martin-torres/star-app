@@ -1,3 +1,8 @@
+// `TableShape` is owned by the floor-plan feature (the one geometry vocabulary).
+// Type-only import: erased at runtime, no dependency cycle (floorplan never
+// imports core).
+import type { TableShape } from '../features/floorplan/model/floorPlan';
+
 export type OrderStatus =
   | 'recibido'
   | 'preparando'
@@ -9,7 +14,15 @@ export type OrderStatus =
   | 'paid'
   | 'cancelled';
 
-export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia' | 'conekta' | 'mercadopago' | 'codi';
+/** Cash, card, phone-wallet, bank transfer, plus legacy provider labels. */
+export type PaymentMethod =
+  | 'efectivo'
+  | 'tarjeta'
+  | 'telefono'
+  | 'transferencia'
+  | 'conekta'
+  | 'mercadopago'
+  | 'codi';
 export type DeliveryType = 'domicilio' | 'sucursal';
 export type MenuCategory = 
   | 'pasteles' | 'postres' | 'especial' | 'promo';
@@ -191,8 +204,9 @@ export interface AppSkinSettings {
   heroTitle?: string;
   heroSubtitle?: string;
   pickupLocationText?: string;
-  adminPin?: string;
-  kitchenPin?: string;
+  // PINs deliberately do NOT live here. They are stored as salted hashes in the
+  // server-only `private_settings` collection and verified by the PocketBase
+  // route /api/star/verify-pin - see db/pocketbase/pb_hooks/star_security.pb.js.
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;
@@ -246,6 +260,11 @@ export interface RestaurantTable {
   qr_code_url?: string;
   x?: number;
   y?: number;
+  /** Floor-plan geometry (written by the manager editor, read by every surface). */
+  width?: number;
+  height?: number;
+  rotation?: number;
+  shape?: TableShape;
   is_available: boolean;
 }
 
@@ -281,6 +300,7 @@ export interface BillPayment {
   amount: number;
   paidAt: number;
   items?: string[];
+  paymentMethod?: PaymentMethod;
 }
 
 export type DineInStage =
@@ -288,5 +308,6 @@ export type DineInStage =
   | 'restaurant-info'
   | 'table-selection'
   | 'dining'
+  | 'ordering'
   | 'bill'
   | 'payment-complete';

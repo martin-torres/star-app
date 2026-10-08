@@ -25,5 +25,22 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "include": [
+    "src",
+    "App.tsx",
+    "index.tsx",
+    "types.ts",
+    "lib",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dev-dist",
+    "pocketbase",
+    "db",
+    "pb_migrations",
+    "pb_data"
+  ]
 }

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, VisitorRecord, RestaurantTable, DineInStage } from './types';
+import type { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, RestaurantTable, DineInStage, PaymentMethod } from './types';
 import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tablesApi, restaurantsApi, uploadFile } from './lib/pocketbase';
+import { dineInRepository } from './src/data/pocketbase';
 import { useUrlMode } from './src/hooks/useUrlMode';
 import { useVisitorTracking } from './src/hooks/useVisitorTracking';
 import { calculateDeliveryFee, haversineKm } from './src/core/pricing';
+import { verifyPin } from './src/features/locks/verifyPin';
 import { resolveUiSettings } from './src/core/uiSettings';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import { sendTelegramNotification } from './lib/telegram';
@@ -19,8 +21,9 @@ import {
   KitchenView,
   DataLock,
   KitchenLock,
-  AdminModule,
+  ManagerHubPage,
 } from './src/features/appViews';
+import { WeightOrderModal } from './src/features/customer/components/WeightOrderModal';
 import {
   QRScanner,
   RestaurantInfoView,
@@ -29,6 +32,8 @@ import {
   BillPayment,
   PaymentCompleteScreen,
 } from './src/features/dinein';
+import { loadDineInPlan } from './src/features/dinein/loadDineInPlan';
+import { emptyFloorPlan, type FloorPlan } from './src/features/floorplan';
 
 type ViewMode = 'customer' | 'admin' | 'data' | 'dashboard';
 type CustomerScreen = 'landing' | 'menu' | 'cart' | 'checkout' | 'tracking';
@@ -49,12 +54,30 @@ const App: React.FC = () => {
   const [promos, setPromos] = useState<PromoItem[]>([]);
   const [settings, setSettings] = useState<AppSkinSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
-  const { visitor, visitorId, sessionId, associateVisitorWithOrder } = useVisitorTracking();
+  const { associateVisitorWithOrder } = useVisitorTracking();
 
-  const restaurantId = getRestaurantIdFromUrl();
+  const urlRestaurantKey = getRestaurantIdFromUrl();
+  // The URL may carry either a record id or a slug. Every query filters on
+  // `restaurant_id`, so resolve the key to the canonical record id ONCE.
+  // Without this, `restaurant_id = "<slug>"` matches nothing and the menu and
+  // table rows silently come back empty.
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantResolved, setRestaurantResolved] = useState(!urlRestaurantKey);
   const urlMode = useUrlMode();
 
   const ui = resolveUiSettings(settings);
+
+  // PIN checks happen on the server (PocketBase route /api/star/verify-pin).
+  // The browser never receives the PIN or its hash, and the server rate-limits
+  // attempts. See src/features/locks/verifyPin.ts.
+  const verifyAdminPin = useCallback(
+    (pin: string) => verifyPin(restaurantId ?? undefined, 'admin', pin),
+    [restaurantId],
+  );
+  const verifyKitchenPin = useCallback(
+    (pin: string) => verifyPin(restaurantId ?? undefined, 'kitchen', pin),
+    [restaurantId],
+  );
 
   // Determine app mode: from restaurant settings, fallback to 'to-go'
   const appMode: AppMode = settings?.mode === 'dine-in' || settings?.mode === 'both' ? 'dine-in' : 'to-go';
@@ -64,8 +87,17 @@ const App: React.FC = () => {
   const [currentRestaurant, setCurrentRestaurant] = useState<any>(null);
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [dineInOrders, setDineInOrders] = useState<OrderItem[]>([]);
+  const [dineInOrderIds, setDineInOrderIds] = useState<string[]>([]);
+  const [sendingToKitchen, setSendingToKitchen] = useState(false);
+  const [kitchenSent, setKitchenSent] = useState(false);
+  /** Quantities already ticketed to kitchen, keyed by item id (+ option). */
+  const [sentQtyByKey, setSentQtyByKey] = useState<Record<string, number>>({});
   const [qrError, setQrError] = useState<string | null>(null);
   const [billData, setBillData] = useState<any>(null);
+  // The customer's floor plan. Loaded once per restaurant and shared with the
+  // same renderer the manager editor uses, so the formation is identical.
+  const [dineInPlan, setDineInPlan] = useState<FloorPlan>(() => emptyFloorPlan());
+  const [dineInPlanLoading, setDineInPlanLoading] = useState(false);
 
   // To-go state
   const [cart, setCart] = useState<OrderItem[]>([]);
@@ -76,7 +108,7 @@ const App: React.FC = () => {
   const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [deliveryType, setDeliveryType] = useState<'domicilio' | 'sucursal'>('domicilio');
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
   const [payWithAmount, setPayWithAmount] = useState<string>('');
   const [transferFile, setTransferFile] = useState<File | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -93,8 +125,41 @@ const App: React.FC = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Resolve id-or-slug -> canonical restaurant id before any data load.
+  useEffect(() => {
+    if (!urlRestaurantKey) {
+      setRestaurantId(null);
+      setRestaurantResolved(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const looksLikeId = /^[a-z0-9]{15}$/.test(urlRestaurantKey);
+      try {
+        let record = looksLikeId
+          ? await restaurantsApi.getById(urlRestaurantKey).catch(() => null)
+          : await restaurantsApi.getBySlug(urlRestaurantKey).catch(() => null);
+        if (!record) {
+          record = looksLikeId
+            ? await restaurantsApi.getBySlug(urlRestaurantKey).catch(() => null)
+            : await restaurantsApi.getById(urlRestaurantKey).catch(() => null);
+        }
+        if (!cancelled) setRestaurantId(record?.id ?? urlRestaurantKey);
+      } catch (err) {
+        console.error('Error resolving restaurant:', err);
+        if (!cancelled) setRestaurantId(urlRestaurantKey);
+      } finally {
+        if (!cancelled) setRestaurantResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlRestaurantKey]);
+
   // --- Load data ---
   useEffect(() => {
+    if (!restaurantResolved) return;
     setIsLoading(true);
     setError(null);
 
@@ -112,9 +177,10 @@ const App: React.FC = () => {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
   useEffect(() => {
+    if (!restaurantResolved) return;
     settingsApi
       .get(restaurantId || undefined)
       .then((data) => setSettings(data))
@@ -122,7 +188,7 @@ const App: React.FC = () => {
         console.error('Error loading restaurant settings:', err);
       })
       .finally(() => setSettingsLoading(false));
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -136,38 +202,61 @@ const App: React.FC = () => {
   }, [ui.primaryColor, ui.secondaryColor, ui.accentColor, ui.backgroundColor, ui.name]);
 
   useEffect(() => {
+    if (!restaurantResolved) return;
     promosApi.getActive(restaurantId || undefined)
       .then(items => {
         setPromos(items);
       })
       .catch(() => console.error('Error al cargar las promociones.'));
-  }, [restaurantId]);
+  }, [restaurantId, restaurantResolved]);
 
-  // Load active orders for kitchen
+  // Load active orders for the kitchen. Gated on the kitchen unlock: the
+  // `orders` collection is deliberately NOT anon-readable, so fetching it before
+  // the manager unlocks just produces a 403 and an empty board.
+  // Poll every 8s as a realtime backup (SSE can drop after long idle).
   useEffect(() => {
-    setKitchenLoading(true);
-    ordersApi.getActive(restaurantId || undefined)
-      .then(items => {
-        setOrders(items);
-      })
-      .catch(() => {
-        console.error('Error al cargar órdenes activas');
-      })
-      .finally(() => {
-        setKitchenLoading(false);
-      });
-  }, [restaurantId]);
+    if (!restaurantResolved || !kitchenUnlocked) return;
+    let cancelled = false;
+    const load = (showSpinner: boolean) => {
+      if (showSpinner) setKitchenLoading(true);
+      ordersApi.getActive(restaurantId || undefined)
+        .then(items => {
+          if (!cancelled) setOrders(items);
+        })
+        .catch(() => {
+          console.error('Error al cargar órdenes activas');
+        })
+        .finally(() => {
+          if (!cancelled && showSpinner) setKitchenLoading(false);
+        });
+    };
+    load(true);
+    const poll = setInterval(() => load(false), 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, [restaurantId, restaurantResolved, kitchenUnlocked]);
 
   const initialViewMode = urlMode;
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+
+  // Sync viewMode when urlMode resolves (useUrlMode starts as 'customer' then updates via useEffect)
+  useEffect(() => {
+    if (urlMode !== 'customer') {
+      setViewMode(urlMode);
+    }
+  }, [urlMode]);
 
   // Handle manual refresh of analytics
   const handleRefreshAnalytics = () => {
     setAnalyticsRefreshTrigger(prev => prev + 1);
   };
 
-  // Fetch historical orders for analytics
+  // Fetch historical orders for analytics. Manager-only data, so wait for the
+  // unlock instead of firing an anon request that the rules will refuse.
   useEffect(() => {
+    if (!restaurantResolved || !authenticated) return;
     setAnalyticsLoading(true);
     setAnalyticsError(null);
 
@@ -182,7 +271,7 @@ const App: React.FC = () => {
       .finally(() => {
         setAnalyticsLoading(false);
       });
-  }, [analyticsRefreshTrigger, restaurantId]);
+  }, [analyticsRefreshTrigger, restaurantId, restaurantResolved, authenticated]);
 
   const handleRetry = () => {
     setError(null);
@@ -220,7 +309,7 @@ const App: React.FC = () => {
           bundleItems: (item as PromoItem).bundleItems,
         }];
       });
-    } else if (item.isWeightBased || (item as any).weightInGrams) {
+    } else if ('isWeightBased' in item && item.isWeightBased) {
       setSelectedWeightItem(item);
       setShowWeightModal(true);
     } else {
@@ -240,7 +329,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleWeightOrderConfirm = (weightInGrams: number) => {
+  const handleWeightOrderConfirm = (weightInGrams: number, _price: number) => {
     if (selectedWeightItem && weightInGrams > 0) {
       const itemWithWeight = {
         ...selectedWeightItem,
@@ -393,9 +482,16 @@ const App: React.FC = () => {
     setQrError(null);
 
     try {
-      let restaurant = await restaurantsApi.getById(restaurantIdOrSlug);
+      // PocketBase ids are 15 lowercase alphanumerics; anything else is a slug.
+      // Probing in the right order avoids a guaranteed 404 + console error.
+      const looksLikeId = /^[a-z0-9]{15}$/.test(restaurantIdOrSlug);
+      let restaurant = looksLikeId
+        ? await restaurantsApi.getById(restaurantIdOrSlug).catch(() => null)
+        : await restaurantsApi.getBySlug(restaurantIdOrSlug).catch(() => null);
       if (!restaurant) {
-        restaurant = await restaurantsApi.getBySlug(restaurantIdOrSlug);
+        restaurant = looksLikeId
+          ? await restaurantsApi.getBySlug(restaurantIdOrSlug).catch(() => null)
+          : await restaurantsApi.getById(restaurantIdOrSlug).catch(() => null);
       }
 
       if (!restaurant) {
@@ -421,13 +517,105 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Load the dine-in floor plan when the customer reaches table selection.
+  // This is a top-level hook: the previous version called useState/useEffect
+  // inside the `table-selection` switch case, which violates the rules of hooks
+  // and crashes `App` whenever that case renders.
+  useEffect(() => {
+    if (dineInStage !== 'table-selection' || !currentRestaurant?.id) return;
+    let cancelled = false;
+    setDineInPlanLoading(true);
+    loadDineInPlan(currentRestaurant.id)
+      .then((plan) => {
+        if (!cancelled) setDineInPlan(plan);
+      })
+      .catch((err) => {
+        console.error('Error loading floor plan:', err);
+        if (!cancelled) setDineInPlan(emptyFloorPlan(currentRestaurant.id));
+      })
+      .finally(() => {
+        if (!cancelled) setDineInPlanLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dineInStage, currentRestaurant?.id]);
+
   const handleContinueOrdering = useCallback(() => {
-    setDineInStage('dining');
-    // In a real app, we'd navigate to the menu screen
-    // For now, we show the dining screen which has a "continue ordering" button
-    // that goes to the menu
-    setActiveScreen('menu');
+    setKitchenSent(false);
+    setDineInStage('ordering');
   }, []);
+
+  const handleAddDineInItem = useCallback((item: MenuItem) => {
+    setDineInOrders(prev => {
+      const existing = prev.find(i => i.id === item.id && !i.selectedOption);
+      if (existing) {
+        return prev.map(i =>
+          i.id === item.id && !i.selectedOption ? { ...i, quantity: i.quantity + 1 } : i,
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+    setKitchenSent(false);
+  }, []);
+
+  const handleSendToKitchen = useCallback(async () => {
+    if (!selectedTable || dineInOrders.length === 0 || sendingToKitchen) return;
+    const itemKey = (item: OrderItem) => `${item.id}:${item.selectedOption?.id || ''}`;
+    const unsentItems = dineInOrders
+      .map((item) => {
+        const already = sentQtyByKey[itemKey(item)] || 0;
+        const qty = item.quantity - already;
+        return qty > 0 ? { ...item, quantity: qty } : null;
+      })
+      .filter((item): item is OrderItem => item !== null);
+
+    if (unsentItems.length === 0) {
+      setKitchenSent(true);
+      return;
+    }
+
+    setSendingToKitchen(true);
+    try {
+      const now = Date.now();
+      const total = unsentItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const restId = currentRestaurant?.id || restaurantId || undefined;
+      const newOrder = await ordersApi.create({
+        customerName: `Mesa ${selectedTable.table_number}`,
+        customerAddress: selectedTable.display_name || `Mesa ${selectedTable.table_number}`,
+        items: unsentItems,
+        total,
+        status: 'recibido',
+        paymentMethod: 'efectivo',
+        restaurant_id: restId,
+        table_id: selectedTable.id,
+        order_type: 'dine-in',
+        notes: `Dine-in mesa ${selectedTable.table_number}`,
+        timestamp: now,
+        statusTimestamps: { recibido: now },
+      });
+      setDineInOrderIds(prev => [...prev, newOrder.id]);
+      setSentQtyByKey(prev => {
+        const next = { ...prev };
+        for (const item of unsentItems) {
+          const key = itemKey(item);
+          next[key] = (next[key] || 0) + item.quantity;
+        }
+        return next;
+      });
+      setKitchenSent(true);
+      try {
+        await tablesApi.update(selectedTable.id, { is_available: false });
+      } catch (err) {
+        console.warn('Could not mark table occupied:', err);
+      }
+    } catch (error: any) {
+      console.error('Error sending dine-in order to kitchen:', error);
+      alert(`Error al enviar a cocina: ${error?.message || error}`);
+    } finally {
+      setSendingToKitchen(false);
+    }
+  }, [selectedTable, dineInOrders, sendingToKitchen, currentRestaurant?.id, restaurantId, sentQtyByKey]);
 
   const handleRequestBill = useCallback(() => {
     const subtotal = dineInOrders.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -445,34 +633,62 @@ const App: React.FC = () => {
     setDineInStage('bill');
   }, [dineInOrders]);
 
-  const handlePaymentComplete = useCallback((paidAmount: number, paidItems: string[]) => {
+  const handlePaymentComplete = useCallback(async (
+    paidAmount: number,
+    paidItems: string[],
+    method: PaymentMethod,
+  ) => {
+    const restId = currentRestaurant?.id || restaurantId || '';
+    try {
+      if (restId && selectedTable) {
+        await dineInRepository.createBillRequest({
+          restaurant_id: restId,
+          table_id: selectedTable.id,
+          order_ids: dineInOrderIds,
+          subtotal: billData?.subtotal || paidAmount,
+          tax: billData?.tax || 0,
+          tip: billData?.tip || 0,
+          total: paidAmount,
+          status: 'paid',
+          payments: [{
+            userId: 'guest',
+            userName: `Mesa ${selectedTable.table_number}`,
+            amount: paidAmount,
+            paidAt: Date.now(),
+            items: paidItems,
+            paymentMethod: method,
+          }],
+          requested_at: Date.now(),
+        });
+      }
+      // Order status → paid is applied server-side when bill_requests lands as paid
+      // (anon clients cannot update `orders`). Soft-fail table release on rule denials.
+      if (selectedTable) {
+        await tablesApi.update(selectedTable.id, { is_available: true }).catch(console.error);
+      }
+    } catch (err) {
+      console.error('Error finalizing dine-in payment:', err);
+    }
+
     setDineInStage('payment-complete');
-    // Auto-reset after showing payment complete
     setTimeout(() => {
       setDineInStage('qr-scan');
       setCurrentRestaurant(null);
       setSelectedTable(null);
       setDineInOrders([]);
+      setDineInOrderIds([]);
+      setSentQtyByKey({});
+      setKitchenSent(false);
       setBillData(null);
       setActiveScreen('landing');
     }, 3000);
-  }, []);
-
-  const handleAddDineInItem = useCallback((item: MenuItem) => {
-    setDineInOrders(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
-  }, []);
+  }, [currentRestaurant?.id, restaurantId, selectedTable, dineInOrderIds, billData]);
 
   // ================================================================
   // RENDER
   // ================================================================
 
-  if (isLoading || settingsLoading) {
+  if (isLoading || settingsLoading || !restaurantResolved) {
     return (
       <LoadingView
         restaurantName={ui.name}
@@ -525,24 +741,40 @@ const App: React.FC = () => {
             />
           ) : null;
 
-        case 'table-selection': {
-          // Load tables for this restaurant
-          const [tables, setTables] = React.useState<RestaurantTable[]>([]);
-          React.useEffect(() => {
-            if (currentRestaurant?.id) {
-              tablesApi.getAll(currentRestaurant.id).then(setTables).catch(console.error);
-            }
-          }, [currentRestaurant?.id]);
-
+        case 'table-selection':
+          if (dineInPlanLoading && dineInPlan.tables.length === 0) {
+            return (
+              <div className="flex items-center justify-center min-h-[40vh] text-gray-500 font-medium">
+                Cargando mesas…
+              </div>
+            );
+          }
           return (
             <TableSelector
-              tables={tables}
+              plan={dineInPlan}
               primaryColor={ui.primaryColor}
               secondaryColor={ui.secondaryColor}
               onSelectTable={handleTableSelection}
             />
           );
-        }
+
+        case 'ordering':
+          return (
+            <MenuView
+              addToCart={handleAddDineInItem}
+              setCart={setDineInOrders}
+              setActiveScreen={(screen) => {
+                if (screen === 'landing' || screen === 'checkout') {
+                  setDineInStage('dining');
+                }
+              }}
+              menuItems={menuItems}
+              settings={ui}
+              primaryColor={ui.primaryColor}
+              secondaryColor={ui.secondaryColor}
+              backScreen="landing"
+            />
+          );
 
         case 'dining':
           return (
@@ -553,6 +785,9 @@ const App: React.FC = () => {
               secondaryColor={ui.secondaryColor}
               onContinueOrdering={handleContinueOrdering}
               onRequestBill={handleRequestBill}
+              onSendToKitchen={handleSendToKitchen}
+              sendingToKitchen={sendingToKitchen}
+              kitchenSent={kitchenSent}
             />
           );
 
@@ -576,6 +811,9 @@ const App: React.FC = () => {
                 setCurrentRestaurant(null);
                 setSelectedTable(null);
                 setDineInOrders([]);
+                setDineInOrderIds([]);
+                setSentQtyByKey({});
+                setKitchenSent(false);
                 setBillData(null);
               }}
             />
@@ -647,13 +885,33 @@ const App: React.FC = () => {
             uiText={ui.uiText}
           />
         )}
+
+        {/* Weight-based ordering: addToCart opens this; it was never rendered. */}
+        {showWeightModal && selectedWeightItem && (
+          <WeightOrderModal
+            isOpen={showWeightModal}
+            item={selectedWeightItem}
+            onClose={() => {
+              setShowWeightModal(false);
+              setSelectedWeightItem(null);
+            }}
+            onConfirm={handleWeightOrderConfirm}
+            primaryColor={ui.primaryColor}
+            secondaryColor={ui.secondaryColor}
+          />
+        )}
       </>
     );
   };
 
+  const isManagerShell = viewMode === 'dashboard';
+
   return (
     <LanguageProvider>
-      <div className="h-screen max-w-lg mx-auto shadow-2xl flex flex-col relative overflow-hidden border-x border-gray-100" style={{ backgroundColor: ui.backgroundColor }}>
+      <div
+        className={`h-screen flex flex-col relative overflow-hidden ${isManagerShell ? 'w-full max-w-none' : 'max-w-lg mx-auto shadow-2xl border-x border-gray-100'}`}
+        style={{ backgroundColor: ui.backgroundColor }}
+      >
         {/* Top Navigation Bar */}
         <div className="shrink-0 bg-white/90 backdrop-blur-xl border-b-2 border-gray-100 p-4 flex justify-between items-center z-50">
           <div className="flex items-center gap-3">
@@ -661,7 +919,7 @@ const App: React.FC = () => {
             <div className="flex flex-col leading-none">
               <span className="font-black text-gray-900 uppercase italic tracking-tighter">{ui.name}</span>
               <span className="text-[8px] font-bold uppercase tracking-[0.3em] mt-0.5" style={{ color: ui.secondaryColor }}>
-                {appMode === 'dine-in' ? 'Dine-In' : ui.locationText}
+                {isManagerShell ? 'Centro de Control' : appMode === 'dine-in' ? 'Dine-In' : ui.locationText}
               </span>
             </div>
           </div>
@@ -693,8 +951,15 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <main ref={scrollRef} className={`flex-1 p-6 pb-32 overflow-y-auto overflow-x-hidden scroll-smooth ${viewMode === 'admin' || viewMode === 'data' || viewMode === 'dashboard' ? 'bg-gray-100' : ''}`}>
+        {/* Main Content Area — manager hub is full-bleed (left rail + floor plan). */}
+        <main
+          ref={scrollRef}
+          className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth ${
+            isManagerShell
+              ? 'p-0 pb-0 bg-gray-100'
+              : `p-6 pb-32 ${viewMode === 'admin' || viewMode === 'data' ? 'bg-gray-100' : ''}`
+          }`}
+        >
           {viewMode === 'customer' ? (
             renderCustomerView()
           ) : viewMode === 'admin' ? (
@@ -709,17 +974,23 @@ const App: React.FC = () => {
                 primaryColor={ui.primaryColor}
               />
             ) : (
-              <KitchenLock onUnlock={() => setKitchenUnlocked(true)} expectedPin={ui.kitchenPin} title={ui.uiText.kitchenLockTitle} accentColor={ui.primaryColor} />
+              <KitchenLock onUnlock={() => setKitchenUnlocked(true)} verify={verifyKitchenPin} title={ui.uiText.kitchenLockTitle} accentColor={ui.primaryColor} />
             )
           ) : viewMode === 'dashboard' ? (
-            <AdminModule
-              settings={settings || {}}
-              onExit={() => {
-                setDashboardUnlocked(false);
-                setViewMode('customer');
-              }}
-              primaryColor={ui.primaryColor}
-            />
+            dashboardUnlocked ? (
+              <div className="h-full min-h-[calc(100vh-72px)]">
+                <ManagerHubPage restaurantId={restaurantId ?? undefined} />
+              </div>
+            ) : (
+              <div className="p-6">
+                <DataLock
+                  onUnlock={() => setDashboardUnlocked(true)}
+                  verify={verifyAdminPin}
+                  title={ui.uiText.dataLockTitle}
+                  accentColor={ui.primaryColor}
+                />
+              </div>
+            )
           ) : (
             authenticated ? (
               <DataView
@@ -735,7 +1006,7 @@ const App: React.FC = () => {
             ) : (
               <DataLock
                 onUnlock={() => { setAuthenticated(true); setAnalyticsRefreshTrigger(prev => prev + 1); }}
-                expectedPin={ui.adminPin}
+                verify={verifyAdminPin}
                 title={ui.uiText.dataLockTitle}
                 accentColor={ui.primaryColor}
               />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-type ViewMode = 'customer' | 'admin' | 'data';
+type ViewMode = 'customer' | 'admin' | 'data' | 'dashboard';
 
 export const useUrlMode = (): ViewMode => {
   const [mode, setMode] = useState<ViewMode>('customer');
@@ -11,7 +11,7 @@ export const useUrlMode = (): ViewMode => {
     const modeParam = params.get('mode');
 
     // Validate mode parameter
-    if (modeParam === 'admin' || modeParam === 'data') {
+    if (modeParam === 'admin' || modeParam === 'data' || modeParam === 'dashboard') {
       setMode(modeParam);
     }
     // If invalid or missing, stays 'customer' (default)

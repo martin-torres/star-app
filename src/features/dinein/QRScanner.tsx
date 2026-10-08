@@ -9,7 +9,6 @@ interface QRScannerProps {
 }
 
 export const QRScanner: React.FC<QRScannerProps> = ({
-  restaurantName = 'Restaurant',
   primaryColor = '#f59e0b',
   onScan,
   error,

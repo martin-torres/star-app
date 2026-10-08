@@ -1,48 +1,44 @@
-# El Arrocito App
+# El Arrocito / Star Multi-Tenant Restaurant App
 
-React + Vite PWA with PocketBase-backed data and database-driven theming for El Arrocito restaurant.
+React + Vite PWA with a **PocketBase** backend. The manager center screen is the floor-plan hub (left rail + live 2D salon). Customer flows cover to-go checkout and dine-in (QR → table → order → kitchen → pay).
 
-## Current Runtime
+## Stack
 
-- Frontend: `React 19` + `Vite`
-- Backend/data: `PocketBase` local instance
-- Active PocketBase data dir: `pocketbase/pb_data`
-- Active migrations:
-  - `pocketbase/pb_migrations/1771380497_collections_snapshot.js`
-  - `pocketbase/pb_migrations/1771381121_stage4_schema_alignment.js`
-  - `pocketbase/pb_migrations/1771381479_stage4_ui_text.js`
+- Frontend: React 19 + Vite + Tailwind
+- Backend: PocketBase (`db/pocketbase/` — schema, hooks, deploy)
+- Data layer: `src/data/pocketbase/**` (canonical). Do not use `trash/`.
 
-## Run Locally
+## Run locally
 
-1. Install deps:
-   - `npm install`
-2. Start PocketBase (separate terminal):
-   - `./pocketbase/pocketbase serve --dir pocketbase/pb_data --migrationsDir pocketbase/pb_migrations`
-3. Run frontend:
-   - `npm run dev`
+1. `npm install`
+2. Start PocketBase (see `db/pocketbase/deploy.sh` / `.env.example`):
+   - Default client URL: `http://127.0.0.1:8096`
+   - `VITE_POCKETBASE_URL=http://127.0.0.1:8096`
+3. `npm run dev`
 
-## Seed Local Restaurant Settings
+## Modes (URL)
 
-Use this after creating a superuser in local PocketBase:
+| URL | Screen |
+|-----|--------|
+| `/?restaurant_id=<id-or-slug>` | Customer (to-go or dine-in from settings) |
+| `/?mode=admin` | Kitchen |
+| `/?mode=data` | Analytics |
+| `/?mode=dashboard` | Manager hub (floor plan center) |
 
-- `PB_ADMIN_EMAIL=... PB_ADMIN_PASSWORD=... npm run seed:settings`
+## Payment methods
 
-Optional:
+Orders store `payment_method` as:
 
-- `PB_URL=http://127.0.0.1:8090`
+- `efectivo` — cash
+- `tarjeta` — credit/debit card
+- `telefono` — phone wallet / installed payment apps
+- `transferencia` — bank transfer (starts as `pendiente_pago` until kitchen confirms)
 
-## Seed Local Menu Items
+## Order → kitchen → payment
 
-Use this after seeding restaurant settings:
+1. **To-go:** Menu → Checkout → create order (`recibido`, or `pendiente_pago` for transfer) → Kitchen advances status → Tracking.
+2. **Dine-in:** QR → table → Menu → **Enviar a Cocina** → Kitchen cooks → **Solicitar Cuenta** → pay with cash/card/phone → bill marked paid.
 
-- `PB_ADMIN_EMAIL=... PB_ADMIN_PASSWORD=... npm run seed:menu`
+## Trash
 
-Optional:
-
-- `PB_URL=http://127.0.0.1:8090`
-
-## Current Documentation Snapshot
-
-See:
-
-- `PROJECT_SNAPSHOT.md`
+Unused / superseded files (old Supabase SQL, abandoned migrations, InsForge scripts, stale docs) live in `trash/`. See `trash/README.md`.

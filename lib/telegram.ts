@@ -1,5 +1,5 @@
 // Telegram notification service
-import type { Order } from '../../types';
+import type { Order } from '../types';
 
 interface TelegramConfig {
   botToken: string;
@@ -8,7 +8,7 @@ interface TelegramConfig {
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
 
-function formatOrderMessage(order: Order, message: string = ''): string {
+function formatOrderMessage(order: Order, _message: string = ''): string {
   const statusEmojis: Record<string, string> = {
     recibido: '🆕',
     preparando: '🔥',

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { VisitorRecord } from '../../core/types';
+import type { VisitorRecord } from '../core/types';
 import { visitorApi } from '../../lib/visitorService';
 
 export const useVisitorTracking = () => {

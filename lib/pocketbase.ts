@@ -1,23 +1,35 @@
+/**
+ * Data adapter - bridges App.tsx to the PocketBase repository layer.
+ *
+ * The export surface is unchanged from the pre-006 InsForge adapter
+ * (`menuItemsApi`, `promosApi`, `ordersApi`, `settingsApi`, `subscribeToOrders`,
+ * `tablesApi`, `restaurantsApi`, `uploadFile`, `authApi`) so App.tsx needs no
+ * call-site changes. Behaviour now comes from PocketBase
+ * (`src/data/pocketbase/**`); `floorPlanApi` is the one addition.
+ */
 import type { MenuItem, Order, OrderStatus, RestaurantTable } from '../types';
 import type { AppSkinSettings } from '../src/core/types';
-import { menuRepository, ordersRepository, insforge, settingsRepository, tablesRepository } from '../src/data/pocketbase';
+import type { FloorPlan } from '../src/features/floorplan/model/floorPlan';
+import { COLLECTIONS } from '../src/data/pocketbase/collections';
+import { pb, POCKETBASE_URL } from '../src/data/pocketbase/client';
+import {
+  authRepository,
+  menuRepository,
+  ordersRepository,
+  restaurantsRepository,
+  settingsRepository,
+  tablesRepository,
+} from '../src/data/pocketbase';
+import { floorPlanApi as floorPlanRepository } from '../src/data/pocketbase/floor-plan-repo';
+import { toOrder, type RawRecord } from '../src/data/pocketbase/mappers';
+import { staffSessionHeaders, getStaffSession } from '../src/features/locks/staffSession';
+
+// ── Promos ───────────────────────────────────────────────────────────────────
 
 export const promosApi = {
-  getActive: async (restaurantId?: string): Promise<any[]> => {
+  getActive: async (restaurantId?: string) => {
     try {
-      let query = insforge.database.from('promos').select('*');
-      if (restaurantId) query = query.eq('restaurant_id', restaurantId);
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []).map((r: any) => ({
-        id: r.id,
-        name: r.code || r.name,
-        description: r.description,
-        price: r.price || 0,
-        category: 'promo',
-        image: r.image || '',
-        active: r.active,
-      }));
+      return await menuRepository.getActivePromos(restaurantId);
     } catch (error) {
       console.error('Error fetching promos:', error);
       return [];
@@ -25,14 +37,34 @@ export const promosApi = {
   },
 };
 
+// ── Menu Items ───────────────────────────────────────────────────────────────
+
 export const menuItemsApi = {
   getAll: async (restaurantId?: string): Promise<MenuItem[]> =>
     menuRepository.getAll(restaurantId),
   getByCategory: async (category: string, restaurantId?: string): Promise<MenuItem[]> =>
-    menuRepository.getByCategory(category as any, restaurantId),
+    menuRepository.getByCategory(category as MenuItem['category'], restaurantId),
   getPromotions: async (restaurantId?: string): Promise<MenuItem[]> =>
-    (await menuRepository.getActivePromos(restaurantId)) as any as MenuItem[],
+    menuRepository.getActivePromos(restaurantId),
   getById: async (id: string): Promise<MenuItem> => menuRepository.getById(id),
+};
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+const kitchenFetch = async (path: string, init?: RequestInit) => {
+  const res = await fetch(`${POCKETBASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...staffSessionHeaders(),
+      ...(init?.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error || `kitchen_api_${res.status}`);
+  }
+  return data;
 };
 
 export const ordersApi = {
@@ -40,11 +72,29 @@ export const ordersApi = {
     ordersRepository.create(orderData),
   getAll: async (restaurantId?: string, status?: OrderStatus): Promise<Order[]> =>
     ordersRepository.getAll(restaurantId, status),
-  getActive: async (restaurantId?: string): Promise<Order[]> =>
-    ordersRepository.getActive(restaurantId),
+  getActive: async (restaurantId?: string): Promise<Order[]> => {
+    // After kitchen/admin PIN unlock we have a staff session — use the
+    // dedicated route because `orders` is not anon-readable.
+    if (getStaffSession()) {
+      const data = await kitchenFetch('/api/star/kitchen-orders');
+      const items = Array.isArray(data.items) ? data.items : [];
+      return items
+        .map((row: RawRecord) => toOrder(row))
+        .filter((order: Order) => !restaurantId || order.restaurant_id === restaurantId);
+    }
+    return ordersRepository.getActive(restaurantId);
+  },
   getById: async (id: string): Promise<Order> => ordersRepository.getById(id),
-  updateStatus: async (orderId: string, newStatus: OrderStatus): Promise<Order> =>
-    ordersRepository.updateStatus(orderId, newStatus),
+  updateStatus: async (orderId: string, newStatus: OrderStatus): Promise<Order> => {
+    if (getStaffSession()) {
+      const data = await kitchenFetch(`/api/star/kitchen-orders/${orderId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      return toOrder(data.item as RawRecord);
+    }
+    return ordersRepository.updateStatus(orderId, newStatus);
+  },
   delete: async (orderId: string): Promise<boolean> => {
     await ordersRepository.remove(orderId);
     return true;
@@ -54,87 +104,79 @@ export const ordersApi = {
 export const subscribeToOrders = (callback: (order: Order) => void) =>
   ordersRepository.subscribeToOrders(callback);
 
+// ── Settings ─────────────────────────────────────────────────────────────────
+
 export const settingsApi = {
   get: async (restaurantId?: string): Promise<AppSkinSettings | null> =>
     settingsRepository.get(restaurantId),
-  save: async (settings: Partial<AppSkinSettings>, restaurantId?: string): Promise<AppSkinSettings> =>
-    settingsRepository.save(settings, restaurantId),
+  save: async (
+    settings: Partial<AppSkinSettings>,
+    restaurantId?: string,
+  ): Promise<AppSkinSettings> => settingsRepository.save(settings, restaurantId),
 };
+
+// ── Tables ───────────────────────────────────────────────────────────────────
 
 export const tablesApi = {
   getAll: async (restaurantId: string): Promise<RestaurantTable[]> =>
     tablesRepository.getAll(restaurantId),
   getAvailable: async (restaurantId: string): Promise<RestaurantTable[]> =>
     tablesRepository.getAvailable(restaurantId),
-  getById: async (id: string): Promise<RestaurantTable> =>
-    tablesRepository.getById(id),
+  getById: async (id: string): Promise<RestaurantTable> => tablesRepository.getById(id),
   create: async (table: Omit<RestaurantTable, 'id'>): Promise<RestaurantTable> =>
     tablesRepository.create(table),
   update: async (id: string, data: Partial<RestaurantTable>): Promise<RestaurantTable> =>
     tablesRepository.update(id, data),
-  delete: async (id: string): Promise<void> =>
-    tablesRepository.delete(id),
+  delete: async (id: string): Promise<void> => tablesRepository.delete(id),
 };
+
+// ── Restaurants (direct queries) ─────────────────────────────────────────────
 
 export const restaurantsApi = {
-  getById: async (id: string) => {
-    try {
-      const { data, error } = await insforge.database
-        .from('restaurants')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data;
-    } catch {
-      return null;
-    }
+  getById: async (id: string) => restaurantsRepository.getById(id),
+  getBySlug: async (slug: string) => restaurantsRepository.getBySlug(slug),
+  getAll: async () => restaurantsRepository.getAll(),
+};
+
+// ── Floor plan (spec 006 deliverable B) ──────────────────────────────────────
+//
+// Consumed by `src/features/**`: the manager editor persists through savePlan and
+// the customer selector reads through getPlan, so both render the same formation.
+// `getPlan` returns null only for an empty restaurant id; a restaurant with no
+// saved plan yet gets a default canvas and its `restaurant_tables` rows.
+
+export const floorPlanApi = {
+  getPlan: async (restaurantId: string): Promise<FloorPlan | null> => {
+    if (!restaurantId) return null;
+    return floorPlanRepository.getPlan(restaurantId);
   },
-  getBySlug: async (slug: string) => {
-    try {
-      const { data, error } = await insforge.database
-        .from('restaurants')
-        .select('*')
-        .eq('slug', slug);
-      if (error) throw error;
-      return (data && data.length > 0) ? data[0] : null;
-    } catch {
-      return null;
-    }
-  },
-  getAll: async () => {
-    try {
-      const { data, error } = await insforge.database
-        .from('restaurants')
-        .select('*');
-      if (error) throw error;
-      return data || [];
-    } catch {
-      return [];
-    }
+  savePlan: async (restaurantId: string, plan: FloorPlan): Promise<void> => {
+    await floorPlanRepository.savePlan(restaurantId, plan);
   },
 };
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  login: async (email: string, password: string) =>
-    insforge.auth.signInWithPassword({ email, password }),
+  login: async (email: string, password: string) => authRepository.login(email, password),
   logout: () => {
-    insforge.auth.signOut();
+    authRepository.logout();
   },
-  getCurrentUser: async () => {
-    const { data } = await insforge.auth.getCurrentUser();
-    return data?.user || null;
-  },
-  isAuthenticated: () => {
-    return !!insforge.getHttpClient().getHeaders()['Authorization'];
-  },
+  getCurrentUser: async () => authRepository.getCurrentUser(),
+  isAuthenticated: () => authRepository.isAuthenticated(),
 };
+
+// ── File Upload ──────────────────────────────────────────────────────────────
 
 export const uploadFile = async (file: File): Promise<string> => {
-  const path = `screenshots/${Date.now()}_${file.name}`;
-  const { data, error } = await insforge.storage.from('images').upload(path, file);
-  if (error) throw error;
-  return insforge.storage.from('images').getPublicUrl(path);
+  const record = await pb
+    .collection(COLLECTIONS.images)
+    .create<{ id: string; file?: string }>({ file });
+  const filename = typeof record.file === 'string' ? record.file : '';
+  if (!filename) {
+    throw new Error('Image upload succeeded but the server returned no filename');
+  }
+  return pb.files.getURL(record, filename);
 };
 
-export default insforge;
+export default pb;

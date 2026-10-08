@@ -12,8 +12,17 @@ build/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
+!.env.example
 
 # PocketBase data (DO NOT COMMIT - contains customer data!)
+# NOTE: the local instance lives at the repo ROOT (pb_data/), not only under
+# pocketbase/ - the root copy was tracked in git because the patterns below
+# only matched the nested path. Keep both.
+pb_data/
+pb_data/**
 pocketbase/pb_data/
 pocketbase/pb_data/*
 !pocketbase/pb_data/.gitkeep
@@ -21,6 +30,13 @@ pocketbase/*.db
 pocketbase/*.db-shm
 pocketbase/*.db-wal
 pocketbase/pocketbase.log
+
+# SQLite databases / WAL anywhere in the tree
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
 # IDE
 .vscode/
@@ -51,4 +67,25 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+_tmp_*
 .vercel
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
+
+# python
+__pycache__/
+*.pyc
+.pb-local/

@@ -17,4 +17,5 @@ export type {
   BillRequest,
   BillPayment,
   DineInStage,
+  VisitorRecord,
 } from './src/core/types';

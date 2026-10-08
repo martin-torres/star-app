@@ -1,5 +1,4 @@
 import React from 'react';
-import { insforge } from '../data/pocketbase/client';
 
 const UNLOCK_KEY = 'ldl_unlocked';
 const DISCLAIMER_KEY = 'ldl_disclaimer_accepted';
@@ -22,28 +21,17 @@ export const useUnlockState = () => {
   }, []);
 
   const acceptDisclaimer = React.useCallback(async (customerName?: string) => {
+    // Device-local only, deliberately.
+    //
+    // This used to also write `disclaimer_accepted*` onto `restaurant_settings`.
+    // That collection is superuser-only and has no such columns, so the write
+    // ALWAYS failed with 403 and was swallowed by the catch — a silent no-op that
+    // looked like persistence. The acknowledgement is a per-device UX gate, so
+    // localStorage is the correct store; if it ever needs to be recorded
+    // server-side, it must go through a server route, not an anon collection write.
     localStorage.setItem(DISCLAIMER_KEY, 'true');
     localStorage.setItem(DISCLAIMER_BY_KEY, customerName || 'anonymous');
     setDisclaimerAccepted(true);
-    
-    try {
-      const { data } = await insforge.database
-        .from('restaurant_settings')
-        .select('*')
-        .limit(1);
-      if (data && data.length > 0) {
-        await insforge.database
-          .from('restaurant_settings')
-          .update({
-            disclaimer_accepted: true,
-            disclaimer_accepted_by: customerName || 'anonymous',
-            disclaimer_accepted_at: new Date().toISOString(),
-          })
-          .eq('id', data[0].id);
-      }
-    } catch (e) {
-      console.log('Could not save disclaimer to database');
-    }
   }, []);
 
   const resetUnlock = React.useCallback(() => {

@@ -1,77 +1,59 @@
 import type { VisitorRecord } from '../types';
-import { insforge } from '../src/data/pocketbase/client';
+import { visitorRepository } from '../src/data/pocketbase';
 
+/**
+ * Visitor API.
+ *
+ * `visitors` is create-only for anonymous clients; the server owns the counters
+ * and order association (route `POST /api/star/visitor-touch`). The previous
+ * implementation read-then-PATCHed the row, which the new rules reject - that is
+ * the "visitors upsert" bug the database review flagged.
+ */
 export const visitorApi = {
   async upsertVisitor(visitorData: Partial<VisitorRecord>): Promise<VisitorRecord> {
-    const { data: existingRecords } = await insforge.database
-      .from('visitors')
-      .select('*')
-      .eq('sessionId', visitorData.sessionId)
-      .limit(1);
+    if (visitorData.id) {
+      // Returning visitor: ask the server to bump last_visit/visit_count.
+      const sessionId = visitorData.sessionId ?? '';
+      await visitorRepository.touch(sessionId);
 
-    if (existingRecords && existingRecords.length > 0) {
-      const record = existingRecords[0];
-      const { data, error } = await insforge.database
-        .from('visitors')
-        .update({
-          ...visitorData,
-          last_visit: new Date().toISOString(),
-          visit_count: (record.visit_count || 0) + 1
-        })
-        .eq('id', record.id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    } else {
-      const { data, error } = await insforge.database
-        .from('visitors')
-        .insert([{
-          first_visit: new Date().toISOString(),
-          last_visit: new Date().toISOString(),
-          visit_count: 1,
-          ...visitorData
-        }])
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+      const refreshed = await visitorRepository.getBySessionId(sessionId);
+      if (refreshed) return refreshed;
+
+      // Anonymous reads of `visitors` are denied, so return what the server
+      // route implies happened rather than a stale row.
+      const now = new Date().toISOString();
+      return {
+        id: visitorData.id,
+        restaurant_id: visitorData.restaurant_id,
+        ip: visitorData.ip ?? 'unknown',
+        userAgent: visitorData.userAgent,
+        deviceType: visitorData.deviceType,
+        isPwaInstalled: visitorData.isPwaInstalled,
+        sessionId,
+        firstVisit: visitorData.firstVisit ?? now,
+        lastVisit: now,
+        visitCount: (visitorData.visitCount ?? 0) + 1,
+        associatedOrders: visitorData.associatedOrders,
+      };
     }
+
+    // First visit: create the row (the hook sets first_visit/last_visit/count).
+    return visitorRepository.createVisitor(visitorData);
   },
 
   async associateVisitorWithOrder(visitorId: string, orderId: string): Promise<void> {
-    try {
-      const { data: visitor, error } = await insforge.database
-        .from('visitors')
-        .select('*')
-        .eq('id', visitorId)
-        .single();
-      if (error || !visitor) throw error || new Error('Visitor not found');
-      const currentOrders = (visitor.associated_orders as string[]) || [];
-      if (!currentOrders.includes(orderId)) {
-        await insforge.database
-          .from('visitors')
-          .update({ associated_orders: [...currentOrders, orderId] })
-          .eq('id', visitorId);
-      }
-    } catch (error) {
-      console.error('Error associating visitor with order:', error);
-      throw error;
+    const visitor = await visitorRepository.getById(visitorId);
+    if (!visitor) {
+      console.warn(
+        `[visitors] Cannot associate order ${orderId}: visitor ${visitorId} is not readable ` +
+          'by an anonymous client (manager-only viewRule)',
+      );
+      return;
     }
+    await visitorRepository.touch(visitor.sessionId, orderId);
   },
 
   async getVisitorBySessionId(sessionId: string): Promise<VisitorRecord | null> {
-    try {
-      const { data, error } = await insforge.database
-        .from('visitors')
-        .select('*')
-        .eq('sessionId', sessionId)
-        .limit(1);
-      if (error) throw error;
-      return (data && data.length > 0) ? data[0] : null;
-    } catch (error) {
-      console.error('Error fetching visitor by session ID:', error);
-      return null;
-    }
-  }
+    return visitorRepository.getBySessionId(sessionId);
+  },
 };
