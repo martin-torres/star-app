@@ -4,13 +4,12 @@
  * The PIN is checked by the PocketBase hook route `/api/star/verify-pin`
  * (see db/pocketbase/pb_hooks/star_security.pb.js).
  *
- * Previously this was `newCode === expectedPin` in the browser, with the PIN
- * delivered to the client inside the public restaurant settings - so the "lock"
- * was cosmetic: the PIN could be read straight out of the settings response, and
- * nothing rate-limited guessing. Now the browser sends the candidate PIN to the
- * server, the server compares it against a salted hash it never exposes, and it
- * refuses after 5 failures per 10 minutes per IP per scope.
+ * On success the server returns a short-lived `session_token` used by
+ * `/api/star/kitchen-orders` so the kitchen board can list/update orders
+ * without a PocketBase user login.
  */
+import { saveStaffSession, type StaffSession } from './staffSession';
+
 export type PinScope = 'admin' | 'kitchen';
 
 export type VerifyPinError =
@@ -24,6 +23,7 @@ export interface VerifyPinResult {
   error?: VerifyPinError;
   attemptsRemaining?: number;
   retryAfterSeconds?: number;
+  session?: StaffSession;
 }
 
 const BASE = (import.meta.env.VITE_POCKETBASE_URL || '').replace(/\/+$/, '');
@@ -34,7 +34,6 @@ export async function verifyPin(
   pin: string,
 ): Promise<VerifyPinResult> {
   if (!restaurantId) {
-    // Without a restaurant there is no PIN to check against. Fail closed.
     return { ok: false, error: 'no_pin_configured' };
   }
   if (!BASE) {
@@ -51,7 +50,20 @@ export async function verifyPin(
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (res.ok && data.ok === true) {
-      return { ok: true };
+      const token = typeof data.session_token === 'string' ? data.session_token : '';
+      const expiresIn =
+        typeof data.expires_in_seconds === 'number' ? data.expires_in_seconds : 8 * 60 * 60;
+      let session: StaffSession | undefined;
+      if (token) {
+        session = {
+          token,
+          scope,
+          restaurantId,
+          expiresAt: Date.now() + expiresIn * 1000,
+        };
+        saveStaffSession(session);
+      }
+      return { ok: true, session };
     }
 
     return {

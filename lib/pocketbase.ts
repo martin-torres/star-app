@@ -11,7 +11,7 @@ import type { MenuItem, Order, OrderStatus, RestaurantTable } from '../types';
 import type { AppSkinSettings } from '../src/core/types';
 import type { FloorPlan } from '../src/features/floorplan/model/floorPlan';
 import { COLLECTIONS } from '../src/data/pocketbase/collections';
-import { pb } from '../src/data/pocketbase/client';
+import { pb, POCKETBASE_URL } from '../src/data/pocketbase/client';
 import {
   authRepository,
   menuRepository,
@@ -21,6 +21,8 @@ import {
   tablesRepository,
 } from '../src/data/pocketbase';
 import { floorPlanApi as floorPlanRepository } from '../src/data/pocketbase/floor-plan-repo';
+import { toOrder, type RawRecord } from '../src/data/pocketbase/mappers';
+import { staffSessionHeaders, getStaffSession } from '../src/features/locks/staffSession';
 
 // ── Promos ───────────────────────────────────────────────────────────────────
 
@@ -49,16 +51,50 @@ export const menuItemsApi = {
 
 // ── Orders ───────────────────────────────────────────────────────────────────
 
+const kitchenFetch = async (path: string, init?: RequestInit) => {
+  const res = await fetch(`${POCKETBASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...staffSessionHeaders(),
+      ...(init?.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error || `kitchen_api_${res.status}`);
+  }
+  return data;
+};
+
 export const ordersApi = {
   create: async (orderData: Omit<Order, 'id'> & { id?: string }): Promise<Order> =>
     ordersRepository.create(orderData),
   getAll: async (restaurantId?: string, status?: OrderStatus): Promise<Order[]> =>
     ordersRepository.getAll(restaurantId, status),
-  getActive: async (restaurantId?: string): Promise<Order[]> =>
-    ordersRepository.getActive(restaurantId),
+  getActive: async (restaurantId?: string): Promise<Order[]> => {
+    // After kitchen/admin PIN unlock we have a staff session — use the
+    // dedicated route because `orders` is not anon-readable.
+    if (getStaffSession()) {
+      const data = await kitchenFetch('/api/star/kitchen-orders');
+      const items = Array.isArray(data.items) ? data.items : [];
+      return items
+        .map((row: RawRecord) => toOrder(row))
+        .filter((order: Order) => !restaurantId || order.restaurant_id === restaurantId);
+    }
+    return ordersRepository.getActive(restaurantId);
+  },
   getById: async (id: string): Promise<Order> => ordersRepository.getById(id),
-  updateStatus: async (orderId: string, newStatus: OrderStatus): Promise<Order> =>
-    ordersRepository.updateStatus(orderId, newStatus),
+  updateStatus: async (orderId: string, newStatus: OrderStatus): Promise<Order> => {
+    if (getStaffSession()) {
+      const data = await kitchenFetch(`/api/star/kitchen-orders/${orderId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      return toOrder(data.item as RawRecord);
+    }
+    return ordersRepository.updateStatus(orderId, newStatus);
+  },
   delete: async (orderId: string): Promise<boolean> => {
     await ordersRepository.remove(orderId);
     return true;
