@@ -14,7 +14,15 @@ export type OrderStatus =
   | 'paid'
   | 'cancelled';
 
-export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia' | 'conekta' | 'mercadopago' | 'codi';
+/** Cash, card, phone-wallet, bank transfer, plus legacy provider labels. */
+export type PaymentMethod =
+  | 'efectivo'
+  | 'tarjeta'
+  | 'telefono'
+  | 'transferencia'
+  | 'conekta'
+  | 'mercadopago'
+  | 'codi';
 export type DeliveryType = 'domicilio' | 'sucursal';
 export type MenuCategory = 
   | 'pasteles' | 'postres' | 'especial' | 'promo';
@@ -292,6 +300,7 @@ export interface BillPayment {
   amount: number;
   paidAt: number;
   items?: string[];
+  paymentMethod?: PaymentMethod;
 }
 
 export type DineInStage =
@@ -299,5 +308,6 @@ export type DineInStage =
   | 'restaurant-info'
   | 'table-selection'
   | 'dining'
+  | 'ordering'
   | 'bill'
   | 'payment-complete';

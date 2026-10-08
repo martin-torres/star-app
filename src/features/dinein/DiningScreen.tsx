@@ -17,6 +17,10 @@ interface DiningScreenProps {
   secondaryColor?: string;
   onContinueOrdering: () => void;
   onRequestBill: () => void;
+  /** Sends the current ticket to the kitchen (PocketBase order). */
+  onSendToKitchen?: () => void;
+  sendingToKitchen?: boolean;
+  kitchenSent?: boolean;
 }
 
 export const DiningScreen: React.FC<DiningScreenProps> = ({
@@ -26,6 +30,9 @@ export const DiningScreen: React.FC<DiningScreenProps> = ({
   secondaryColor = '#ea580c',
   onContinueOrdering,
   onRequestBill,
+  onSendToKitchen,
+  sendingToKitchen = false,
+  kitchenSent = false,
 }) => {
   const total = currentOrders.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -116,6 +123,7 @@ export const DiningScreen: React.FC<DiningScreenProps> = ({
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-2xl">
           <div className="max-w-lg mx-auto space-y-2">
             <button
+              type="button"
               onClick={onContinueOrdering}
               className="w-full py-3 rounded-2xl font-bold transition-all border-2"
               style={{
@@ -127,10 +135,31 @@ export const DiningScreen: React.FC<DiningScreenProps> = ({
               <Plus className="w-5 h-5 inline mr-2" />
               Seguir Ordenando
             </button>
+            {currentOrders.length > 0 && onSendToKitchen && (
+              <button
+                type="button"
+                onClick={onSendToKitchen}
+                disabled={sendingToKitchen || kitchenSent}
+                className="w-full py-3 rounded-2xl font-bold transition-all border-2 disabled:opacity-50"
+                style={{
+                  borderColor: secondaryColor,
+                  color: kitchenSent ? '#15803d' : secondaryColor,
+                  backgroundColor: kitchenSent ? '#dcfce7' : secondaryColor + '10',
+                }}
+              >
+                {sendingToKitchen
+                  ? 'Enviando a cocina…'
+                  : kitchenSent
+                    ? '✓ Enviado a cocina'
+                    : 'Enviar a Cocina'}
+              </button>
+            )}
             {currentOrders.length > 0 && (
               <button
+                type="button"
                 onClick={onRequestBill}
-                className="w-full text-white py-4 rounded-2xl font-bold text-lg transition-all hover:brightness-90 shadow-lg"
+                disabled={!kitchenSent && !!onSendToKitchen}
+                className="w-full text-white py-4 rounded-2xl font-bold text-lg transition-all hover:brightness-90 shadow-lg disabled:opacity-40"
                 style={{ backgroundColor: primaryColor }}
               >
                 Solicitar Cuenta

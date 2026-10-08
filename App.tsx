@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, RestaurantTable, DineInStage } from './types';
+import type { Order, OrderItem, MenuItem, OrderStatus, CustomerInfo, PromoItem, AppSkinSettings, RestaurantTable, DineInStage, PaymentMethod } from './types';
 import { menuItemsApi, promosApi, ordersApi, settingsApi, subscribeToOrders, tablesApi, restaurantsApi, uploadFile } from './lib/pocketbase';
+import { dineInRepository } from './src/data/pocketbase';
 import { useUrlMode } from './src/hooks/useUrlMode';
 import { useVisitorTracking } from './src/hooks/useVisitorTracking';
 import { calculateDeliveryFee, haversineKm } from './src/core/pricing';
@@ -86,6 +87,11 @@ const App: React.FC = () => {
   const [currentRestaurant, setCurrentRestaurant] = useState<any>(null);
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [dineInOrders, setDineInOrders] = useState<OrderItem[]>([]);
+  const [dineInOrderIds, setDineInOrderIds] = useState<string[]>([]);
+  const [sendingToKitchen, setSendingToKitchen] = useState(false);
+  const [kitchenSent, setKitchenSent] = useState(false);
+  /** Quantities already ticketed to kitchen, keyed by item id (+ option). */
+  const [sentQtyByKey, setSentQtyByKey] = useState<Record<string, number>>({});
   const [qrError, setQrError] = useState<string | null>(null);
   const [billData, setBillData] = useState<any>(null);
   // The customer's floor plan. Loaded once per restaurant and shared with the
@@ -102,7 +108,7 @@ const App: React.FC = () => {
   const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [deliveryType, setDeliveryType] = useState<'domicilio' | 'sucursal'>('domicilio');
-  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia'>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
   const [payWithAmount, setPayWithAmount] = useState<string>('');
   const [transferFile, setTransferFile] = useState<File | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -207,19 +213,29 @@ const App: React.FC = () => {
   // Load active orders for the kitchen. Gated on the kitchen unlock: the
   // `orders` collection is deliberately NOT anon-readable, so fetching it before
   // the manager unlocks just produces a 403 and an empty board.
+  // Poll every 8s as a realtime backup (SSE can drop after long idle).
   useEffect(() => {
     if (!restaurantResolved || !kitchenUnlocked) return;
-    setKitchenLoading(true);
-    ordersApi.getActive(restaurantId || undefined)
-      .then(items => {
-        setOrders(items);
-      })
-      .catch(() => {
-        console.error('Error al cargar órdenes activas');
-      })
-      .finally(() => {
-        setKitchenLoading(false);
-      });
+    let cancelled = false;
+    const load = (showSpinner: boolean) => {
+      if (showSpinner) setKitchenLoading(true);
+      ordersApi.getActive(restaurantId || undefined)
+        .then(items => {
+          if (!cancelled) setOrders(items);
+        })
+        .catch(() => {
+          console.error('Error al cargar órdenes activas');
+        })
+        .finally(() => {
+          if (!cancelled && showSpinner) setKitchenLoading(false);
+        });
+    };
+    load(true);
+    const poll = setInterval(() => load(false), 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
   }, [restaurantId, restaurantResolved, kitchenUnlocked]);
 
   const initialViewMode = urlMode;
@@ -526,12 +542,80 @@ const App: React.FC = () => {
   }, [dineInStage, currentRestaurant?.id]);
 
   const handleContinueOrdering = useCallback(() => {
-    setDineInStage('dining');
-    // In a real app, we'd navigate to the menu screen
-    // For now, we show the dining screen which has a "continue ordering" button
-    // that goes to the menu
-    setActiveScreen('menu');
+    setKitchenSent(false);
+    setDineInStage('ordering');
   }, []);
+
+  const handleAddDineInItem = useCallback((item: MenuItem) => {
+    setDineInOrders(prev => {
+      const existing = prev.find(i => i.id === item.id && !i.selectedOption);
+      if (existing) {
+        return prev.map(i =>
+          i.id === item.id && !i.selectedOption ? { ...i, quantity: i.quantity + 1 } : i,
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+    setKitchenSent(false);
+  }, []);
+
+  const handleSendToKitchen = useCallback(async () => {
+    if (!selectedTable || dineInOrders.length === 0 || sendingToKitchen) return;
+    const itemKey = (item: OrderItem) => `${item.id}:${item.selectedOption?.id || ''}`;
+    const unsentItems = dineInOrders
+      .map((item) => {
+        const already = sentQtyByKey[itemKey(item)] || 0;
+        const qty = item.quantity - already;
+        return qty > 0 ? { ...item, quantity: qty } : null;
+      })
+      .filter((item): item is OrderItem => item !== null);
+
+    if (unsentItems.length === 0) {
+      setKitchenSent(true);
+      return;
+    }
+
+    setSendingToKitchen(true);
+    try {
+      const now = Date.now();
+      const total = unsentItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const restId = currentRestaurant?.id || restaurantId || undefined;
+      const newOrder = await ordersApi.create({
+        customerName: `Mesa ${selectedTable.table_number}`,
+        customerAddress: selectedTable.display_name || `Mesa ${selectedTable.table_number}`,
+        items: unsentItems,
+        total,
+        status: 'recibido',
+        paymentMethod: 'efectivo',
+        restaurant_id: restId,
+        table_id: selectedTable.id,
+        order_type: 'dine-in',
+        notes: `Dine-in mesa ${selectedTable.table_number}`,
+        timestamp: now,
+        statusTimestamps: { recibido: now },
+      });
+      setDineInOrderIds(prev => [...prev, newOrder.id]);
+      setSentQtyByKey(prev => {
+        const next = { ...prev };
+        for (const item of unsentItems) {
+          const key = itemKey(item);
+          next[key] = (next[key] || 0) + item.quantity;
+        }
+        return next;
+      });
+      setKitchenSent(true);
+      try {
+        await tablesApi.update(selectedTable.id, { is_available: false });
+      } catch (err) {
+        console.warn('Could not mark table occupied:', err);
+      }
+    } catch (error: any) {
+      console.error('Error sending dine-in order to kitchen:', error);
+      alert(`Error al enviar a cocina: ${error?.message || error}`);
+    } finally {
+      setSendingToKitchen(false);
+    }
+  }, [selectedTable, dineInOrders, sendingToKitchen, currentRestaurant?.id, restaurantId, sentQtyByKey]);
 
   const handleRequestBill = useCallback(() => {
     const subtotal = dineInOrders.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -549,21 +633,56 @@ const App: React.FC = () => {
     setDineInStage('bill');
   }, [dineInOrders]);
 
-  const handlePaymentComplete = useCallback((_paidAmount: number, _paidItems: string[]) => {
+  const handlePaymentComplete = useCallback(async (
+    paidAmount: number,
+    paidItems: string[],
+    method: PaymentMethod,
+  ) => {
+    const restId = currentRestaurant?.id || restaurantId || '';
+    try {
+      if (restId && selectedTable) {
+        await dineInRepository.createBillRequest({
+          restaurant_id: restId,
+          table_id: selectedTable.id,
+          order_ids: dineInOrderIds,
+          subtotal: billData?.subtotal || paidAmount,
+          tax: billData?.tax || 0,
+          tip: billData?.tip || 0,
+          total: paidAmount,
+          status: 'paid',
+          payments: [{
+            userId: 'guest',
+            userName: `Mesa ${selectedTable.table_number}`,
+            amount: paidAmount,
+            paidAt: Date.now(),
+            items: paidItems,
+            paymentMethod: method,
+          }],
+          requested_at: Date.now(),
+        });
+      }
+      // Order status → paid is applied server-side when bill_requests lands as paid
+      // (anon clients cannot update `orders`). Soft-fail table release on rule denials.
+      if (selectedTable) {
+        await tablesApi.update(selectedTable.id, { is_available: true }).catch(console.error);
+      }
+    } catch (err) {
+      console.error('Error finalizing dine-in payment:', err);
+    }
+
     setDineInStage('payment-complete');
-    // Auto-reset after showing payment complete
     setTimeout(() => {
       setDineInStage('qr-scan');
       setCurrentRestaurant(null);
       setSelectedTable(null);
       setDineInOrders([]);
+      setDineInOrderIds([]);
+      setSentQtyByKey({});
+      setKitchenSent(false);
       setBillData(null);
       setActiveScreen('landing');
     }, 3000);
-  }, []);
-
-  // NOTE: dine-in ordering is not wired yet — this handler was dead code. When
-  // the dine-in menu path is built, it should feed `dineInOrders` from MenuView.
+  }, [currentRestaurant?.id, restaurantId, selectedTable, dineInOrderIds, billData]);
 
   // ================================================================
   // RENDER
@@ -639,6 +758,24 @@ const App: React.FC = () => {
             />
           );
 
+        case 'ordering':
+          return (
+            <MenuView
+              addToCart={handleAddDineInItem}
+              setCart={setDineInOrders}
+              setActiveScreen={(screen) => {
+                if (screen === 'landing' || screen === 'checkout') {
+                  setDineInStage('dining');
+                }
+              }}
+              menuItems={menuItems}
+              settings={ui}
+              primaryColor={ui.primaryColor}
+              secondaryColor={ui.secondaryColor}
+              backScreen="landing"
+            />
+          );
+
         case 'dining':
           return (
             <DiningScreen
@@ -648,6 +785,9 @@ const App: React.FC = () => {
               secondaryColor={ui.secondaryColor}
               onContinueOrdering={handleContinueOrdering}
               onRequestBill={handleRequestBill}
+              onSendToKitchen={handleSendToKitchen}
+              sendingToKitchen={sendingToKitchen}
+              kitchenSent={kitchenSent}
             />
           );
 
@@ -671,6 +811,9 @@ const App: React.FC = () => {
                 setCurrentRestaurant(null);
                 setSelectedTable(null);
                 setDineInOrders([]);
+                setDineInOrderIds([]);
+                setSentQtyByKey({});
+                setKitchenSent(false);
                 setBillData(null);
               }}
             />
@@ -761,9 +904,14 @@ const App: React.FC = () => {
     );
   };
 
+  const isManagerShell = viewMode === 'dashboard';
+
   return (
     <LanguageProvider>
-      <div className="h-screen max-w-lg mx-auto shadow-2xl flex flex-col relative overflow-hidden border-x border-gray-100" style={{ backgroundColor: ui.backgroundColor }}>
+      <div
+        className={`h-screen flex flex-col relative overflow-hidden ${isManagerShell ? 'w-full max-w-none' : 'max-w-lg mx-auto shadow-2xl border-x border-gray-100'}`}
+        style={{ backgroundColor: ui.backgroundColor }}
+      >
         {/* Top Navigation Bar */}
         <div className="shrink-0 bg-white/90 backdrop-blur-xl border-b-2 border-gray-100 p-4 flex justify-between items-center z-50">
           <div className="flex items-center gap-3">
@@ -771,7 +919,7 @@ const App: React.FC = () => {
             <div className="flex flex-col leading-none">
               <span className="font-black text-gray-900 uppercase italic tracking-tighter">{ui.name}</span>
               <span className="text-[8px] font-bold uppercase tracking-[0.3em] mt-0.5" style={{ color: ui.secondaryColor }}>
-                {appMode === 'dine-in' ? 'Dine-In' : ui.locationText}
+                {isManagerShell ? 'Centro de Control' : appMode === 'dine-in' ? 'Dine-In' : ui.locationText}
               </span>
             </div>
           </div>
@@ -803,8 +951,15 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <main ref={scrollRef} className={`flex-1 p-6 pb-32 overflow-y-auto overflow-x-hidden scroll-smooth ${viewMode === 'admin' || viewMode === 'data' || viewMode === 'dashboard' ? 'bg-gray-100' : ''}`}>
+        {/* Main Content Area — manager hub is full-bleed (left rail + floor plan). */}
+        <main
+          ref={scrollRef}
+          className={`flex-1 overflow-y-auto overflow-x-hidden scroll-smooth ${
+            isManagerShell
+              ? 'p-0 pb-0 bg-gray-100'
+              : `p-6 pb-32 ${viewMode === 'admin' || viewMode === 'data' ? 'bg-gray-100' : ''}`
+          }`}
+        >
           {viewMode === 'customer' ? (
             renderCustomerView()
           ) : viewMode === 'admin' ? (
@@ -823,14 +978,18 @@ const App: React.FC = () => {
             )
           ) : viewMode === 'dashboard' ? (
             dashboardUnlocked ? (
-              <ManagerHubPage restaurantId={restaurantId ?? undefined} />
+              <div className="h-full min-h-[calc(100vh-72px)]">
+                <ManagerHubPage restaurantId={restaurantId ?? undefined} />
+              </div>
             ) : (
-              <DataLock
-                onUnlock={() => setDashboardUnlocked(true)}
-                verify={verifyAdminPin}
-                title={ui.uiText.dataLockTitle}
-                accentColor={ui.primaryColor}
-              />
+              <div className="p-6">
+                <DataLock
+                  onUnlock={() => setDashboardUnlocked(true)}
+                  verify={verifyAdminPin}
+                  title={ui.uiText.dataLockTitle}
+                  accentColor={ui.primaryColor}
+                />
+              </div>
             )
           ) : (
             authenticated ? (

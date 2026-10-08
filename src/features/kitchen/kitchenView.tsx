@@ -153,11 +153,29 @@ export const KitchenView = ({
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-gray-50 border-t-2 border-black">
-                {order.status === 'recibido' && <button onClick={() => updateOrderStatus(order.id, 'preparando')} className="w-full bg-black text-white py-4 rounded-xl font-black uppercase text-xs italic">{uiText?.kitchenAcceptLabel || 'Aceptar Comanda'}</button>}
-                {order.status === 'preparando' && <button onClick={() => updateOrderStatus(order.id, 'listo')} className="w-full text-black py-4 rounded-xl font-black uppercase text-xs italic" style={{ backgroundColor: primaryColor }}>{uiText?.kitchenCookedLabel || 'Marcar Cocinado'}</button>}
-                {order.status === 'listo' && <button onClick={() => updateOrderStatus(order.id, order.customerAddress === pickupLocationText ? 'entregado' : 'en_camino')} className={`w-full ${order.customerAddress === pickupLocationText ? 'bg-green-600' : 'bg-blue-500'} text-white py-4 rounded-xl font-black uppercase text-xs italic`}>{order.customerAddress === pickupLocationText ? (uiText?.kitchenDeliverCustomerLabel || 'Entregar Cliente') : (uiText?.kitchenSendRiderLabel || 'Enviar Moto')}</button>}
-                {order.status === 'en_camino' && <button onClick={() => updateOrderStatus(order.id, 'entregado')} className="w-full bg-green-500 text-white py-4 rounded-xl font-black uppercase text-xs italic">{uiText?.kitchenConfirmDeliveryLabel || 'Confirmar Entrega'}</button>}
+              <div className="p-4 bg-gray-50 border-t-2 border-black space-y-2">
+                {order.paymentMethod && (
+                  <p className="text-[9px] font-black uppercase text-gray-500 text-center tracking-widest">
+                    Pago: {order.paymentMethod === 'efectivo' ? 'Efectivo'
+                      : order.paymentMethod === 'tarjeta' ? 'Tarjeta'
+                      : order.paymentMethod === 'telefono' ? 'Teléfono'
+                      : order.paymentMethod === 'transferencia' ? 'Transferencia'
+                      : order.paymentMethod}
+                  </p>
+                )}
+                {order.status === 'pendiente_pago' && (
+                  <button
+                    type="button"
+                    onClick={() => updateOrderStatus(order.id, 'recibido')}
+                    className="w-full bg-amber-500 text-white py-4 rounded-xl font-black uppercase text-xs italic"
+                  >
+                    Confirmar Pago
+                  </button>
+                )}
+                {order.status === 'recibido' && <button type="button" onClick={() => updateOrderStatus(order.id, 'preparando')} className="w-full bg-black text-white py-4 rounded-xl font-black uppercase text-xs italic">{uiText?.kitchenAcceptLabel || 'Aceptar Comanda'}</button>}
+                {order.status === 'preparando' && <button type="button" onClick={() => updateOrderStatus(order.id, 'listo')} className="w-full text-black py-4 rounded-xl font-black uppercase text-xs italic" style={{ backgroundColor: primaryColor }}>{uiText?.kitchenCookedLabel || 'Marcar Cocinado'}</button>}
+                {order.status === 'listo' && <button type="button" onClick={() => updateOrderStatus(order.id, order.order_type === 'dine-in' || order.customerAddress === pickupLocationText ? 'entregado' : 'en_camino')} className={`w-full ${order.order_type === 'dine-in' || order.customerAddress === pickupLocationText ? 'bg-green-600' : 'bg-blue-500'} text-white py-4 rounded-xl font-black uppercase text-xs italic`}>{order.order_type === 'dine-in' || order.customerAddress === pickupLocationText ? (uiText?.kitchenDeliverCustomerLabel || 'Entregar Cliente') : (uiText?.kitchenSendRiderLabel || 'Enviar Moto')}</button>}
+                {order.status === 'en_camino' && <button type="button" onClick={() => updateOrderStatus(order.id, 'entregado')} className="w-full bg-green-500 text-white py-4 rounded-xl font-black uppercase text-xs italic">{uiText?.kitchenConfirmDeliveryLabel || 'Confirmar Entrega'}</button>}
               </div>
             </div>
             );
@@ -185,13 +203,15 @@ export const KitchenView = ({
               alt="Transfer proof"
             />
             <button
+              type="button"
               onClick={() => {
-                updateOrderStatus(previewScreenshot.orderId, 'preparando');
+                // Confirm transfer payment first; kitchen then accepts as recibido → preparando.
+                updateOrderStatus(previewScreenshot.orderId, 'recibido');
                 setPreviewScreenshot(null);
               }}
               className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-xs bg-black text-white py-4 rounded-xl font-black uppercase text-xs italic"
             >
-              {uiText?.kitchenAcceptLabel || 'Aceptar Comanda'}
+              Confirmar Pago
             </button>
           </div>
         </div>

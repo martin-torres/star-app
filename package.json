@@ -7,9 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "setup": "node scripts/setup-collections.js",
-    "seed:settings": "node scripts/seed-restaurant-settings.js",
-    "seed:menu": "node scripts/seed-menu-items.js"
+    "pb:deploy": "bash db/pocketbase/deploy.sh"
   },
   "dependencies": {
     "dotenv": "^16.6.1",

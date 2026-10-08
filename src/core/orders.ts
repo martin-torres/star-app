@@ -1,11 +1,12 @@
 import type { OrderStatus } from './types';
 
+/** Kitchen + payment transitions used by the live UI (skips unused empaquetando). */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pendiente_pago: ['recibido'],
-  recibido: ['preparando', 'entregado'],
-  preparando: ['empaquetando', 'entregado'],
+  pendiente_pago: ['recibido', 'cancelled'],
+  recibido: ['preparando', 'entregado', 'paid', 'cancelled'],
+  preparando: ['listo', 'empaquetando', 'entregado', 'paid'],
   empaquetando: ['listo', 'entregado'],
-  listo: ['en_camino', 'entregado'],
+  listo: ['en_camino', 'entregado', 'paid'],
   en_camino: ['entregado'],
   entregado: [],
   paid: [],
@@ -15,4 +16,4 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export const canTransitionOrderStatus = (
   current: OrderStatus,
   next: OrderStatus
-): boolean => TRANSITIONS[current].includes(next);
+): boolean => (TRANSITIONS[current] || []).includes(next);

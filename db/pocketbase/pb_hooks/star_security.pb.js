@@ -563,6 +563,58 @@ onRecordCreateRequest(
 );
 
 // ---------------------------------------------------------------------------
+// 7b. Dine-in bill paid → mark linked orders paid (anon cannot update orders)
+// ---------------------------------------------------------------------------
+
+onRecordAfterCreateSuccess(
+  (e) => {
+    try {
+      const rec = e.record;
+      const status = String(rec.getString("status") || "");
+      if (status !== "paid") return;
+
+      let orderIds = rec.get("order_ids");
+      if (typeof orderIds !== "string") orderIds = String(orderIds);
+      try { orderIds = JSON.parse(orderIds); } catch (ignored) { orderIds = null; }
+      if (!orderIds || typeof orderIds.length !== "number") orderIds = [];
+
+      const nowMs = Date.now();
+      for (let i = 0; i < orderIds.length; i++) {
+        const id = String(orderIds[i] || "");
+        if (!id) continue;
+        try {
+          const order = e.app.findRecordById("orders", id);
+          if (!order) continue;
+          order.set("status", "paid");
+          let stamps = order.get("status_timestamps");
+          if (typeof stamps !== "string") stamps = String(stamps);
+          try { stamps = JSON.parse(stamps); } catch (ignored) { stamps = {}; }
+          if (!stamps || typeof stamps !== "object") stamps = {};
+          stamps.paid = nowMs;
+          order.set("status_timestamps", JSON.stringify(stamps));
+          e.app.save(order);
+        } catch (ignored) { /* best-effort per order */ }
+      }
+
+      // Free the table on the floor plan once the bill is settled.
+      const tableId = String(rec.getString("table_id") || "");
+      if (tableId) {
+        try {
+          const table = e.app.findRecordById("restaurant_tables", tableId);
+          if (table) {
+            table.set("is_available", true);
+            e.app.save(table);
+          }
+        } catch (ignored) { /* table free is best-effort */ }
+      }
+    } catch (err) {
+      console.log("[star] bill_requests after-create failed:", String(err));
+    }
+  },
+  "bill_requests",
+);
+
+// ---------------------------------------------------------------------------
 // 8. Strip the Telegram bot token from every client-visible settings response
 //
 // restaurant_settings.data is world-readable and used to carry telegramBotToken.
